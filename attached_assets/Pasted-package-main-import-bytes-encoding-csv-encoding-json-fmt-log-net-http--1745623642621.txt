@@ -1,0 +1,175 @@
+package main
+
+import (
+	"bytes"
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+)
+
+type Item struct {
+	ID   string `json:"itemid"`
+	Nome string `json:"name"`
+}
+
+type Trigger struct {
+	ID   string `json:"triggerid"`
+	Nome string `json:"description"`
+}
+
+type Host struct {
+	ID       string    `json:"hostid"`
+	Nome     string    `json:"host"`
+	Status   string    `json:"status"`
+	Items    []Item    `json:"items"`
+	Triggers []Trigger `json:"triggers"`
+}
+
+type Resposta struct {
+	Resultados []Host `json:"result"`
+}
+
+func main() {
+	url := "http:///zabbix/api_jsonrpc.php"
+	tokenDeAutenticacao := ""
+
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Timeout de 30 segundos
+	}
+
+	cabecalhos := map[string]string{
+		"Content-Type": "application/json-rpc",
+	}
+
+	// Atualizando a requisição para incluir o campo "status"
+	pedido := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "host.get",
+		"params": map[string]interface{}{
+			"output":         []string{"hostid", "host", "status"}, // Incluindo "status"
+			"selectItems":    []string{"itemid", "name"},
+			"selectTriggers": []string{"triggerid", "description"},
+		},
+		"auth": tokenDeAutenticacao,
+		"id":   1,
+	}
+
+	if erro := executarRequisicao(url, cabecalhos, pedido, client); erro != nil {
+		log.Fatalf("Erro ao gerar o relatório: %v", erro)
+	}
+}
+
+func executarRequisicao(url string, cabecalhos map[string]string, pedido map[string]interface{}, client *http.Client) error {
+	pedidoBytes, erro := json.Marshal(pedido)
+	if erro != nil {
+		return fmt.Errorf("erro ao criar o pedido JSON: %w", erro)
+	}
+
+	req, erro := http.NewRequest("POST", url, bytes.NewBuffer(pedidoBytes))
+	if erro != nil {
+		return fmt.Errorf("erro ao criar a requisição: %w", erro)
+	}
+
+	for chave, valor := range cabecalhos {
+		req.Header.Set(chave, valor)
+	}
+
+	resposta, erro := client.Do(req)
+	if erro != nil {
+		return fmt.Errorf("erro na requisição: %w", erro)
+	}
+	defer resposta.Body.Close()
+
+	if resposta.StatusCode != 200 {
+		return fmt.Errorf("erro na requisição, código de status: %d", resposta.StatusCode)
+	}
+
+	var respostaFinal Resposta
+	erro = json.NewDecoder(resposta.Body).Decode(&respostaFinal)
+	if erro != nil {
+		return fmt.Errorf("erro ao decodificar a resposta JSON: %w", erro)
+	}
+
+	if len(respostaFinal.Resultados) == 0 {
+		return fmt.Errorf("nenhum host encontrado.")
+	}
+
+	return gerarCSV(respostaFinal.Resultados)
+}
+
+func gerarCSV(hosts []Host) error {
+	arquivo, err := os.Create("Relatorio_Zabbix_Completo.csv")
+	if err != nil {
+		return fmt.Errorf("erro ao criar o arquivo CSV: %w", err)
+	}
+	defer arquivo.Close()
+
+	writer := csv.NewWriter(arquivo)
+	writer.Comma = ';'
+
+	cabecalhos := []string{
+		"Host ID", "Host Nome", "Status", "Item 1 ID", "Item 1 Nome",
+		"Item 2 ID", "Item 2 Nome", "Trigger 1 ID", "Trigger 1 Descrição",
+		"Trigger 2 ID", "Trigger 2 Descrição",
+	}
+	err = writer.Write(cabecalhos)
+	if err != nil {
+		return fmt.Errorf("erro ao escrever os cabeçalhos no arquivo CSV: %w", err)
+	}
+
+	statusMap := map[string]string{
+		"0": "Ativo",
+		"1": "Inativo",
+	}
+
+	for _, host := range hosts {
+		status, ok := statusMap[host.Status]
+		if !ok {
+			status = "Desconhecido" // Caso o status não esteja no mapa
+		}
+
+		itemCols := []string{}
+		for i, item := range host.Items {
+			itemCols = append(itemCols, item.ID, item.Nome)
+			if i == 1 {
+				break
+			}
+		}
+
+		for len(itemCols) < 4 {
+			itemCols = append(itemCols, "", "")
+		}
+
+		triggerCols := []string{}
+		for i, trigger := range host.Triggers {
+			triggerCols = append(triggerCols, trigger.ID, trigger.Nome)
+			if i == 1 {
+				break
+			}
+		}
+
+		for len(triggerCols) < 4 {
+			triggerCols = append(triggerCols, "", "")
+		}
+
+		linha := []string{
+			host.ID,
+			host.Nome,
+			status,
+		}
+		linha = append(linha, itemCols...)
+		linha = append(linha, triggerCols...)
+
+		err = writer.Write(linha)
+		if err != nil {
+			return fmt.Errorf("erro ao escrever os dados no arquivo CSV: %w", err)
+		}
+	}
+
+	writer.Flush()
+	return nil
+}
