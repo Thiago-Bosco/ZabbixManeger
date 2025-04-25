@@ -1,98 +1,61 @@
 package zabbix
 
 import (
-	"encoding/csv"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
+        "encoding/csv"
+        "fmt"
+        "os"
+        "time"
 )
 
-// GerarRelatorioCSV gera um arquivo CSV com os dados dos hosts
-func GerarRelatorioCSV(hosts []Host, caminho string) error {
-	// Se o caminho não foi especificado, usar um nome padrão
-	if caminho == "" {
-		dataAtual := time.Now().Format("2006-01-02_15-04-05")
-		caminho = fmt.Sprintf("Relatorio_Zabbix_%s.csv", dataAtual)
-	}
+// GerarRelatorioCSV gera um relatório CSV contendo informações dos hosts
+func GerarRelatorioCSV(hosts []Host, caminhoArquivo string) error {
+        // Criar o arquivo
+        arquivo, err := os.Create(caminhoArquivo)
+        if err != nil {
+                return fmt.Errorf("erro ao criar arquivo: %w", err)
+        }
+        defer arquivo.Close()
 
-	// Garantir que o diretório exista
-	dir := filepath.Dir(caminho)
-	if dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("erro ao criar diretório para o relatório: %w", err)
-		}
-	}
+        // Criar o escritor CSV
+        escritor := csv.NewWriter(arquivo)
+        defer escritor.Flush()
 
-	arquivo, err := os.Create(caminho)
-	if err != nil {
-		return fmt.Errorf("erro ao criar o arquivo CSV: %w", err)
-	}
-	defer arquivo.Close()
+        // Escrever cabeçalho
+        cabecalho := []string{
+                "ID do Host",
+                "Nome do Host",
+                "Status",
+                "Quantidade de Itens",
+                "Quantidade de Triggers",
+                "Data de Exportação",
+        }
+        if err := escritor.Write(cabecalho); err != nil {
+                return fmt.Errorf("erro ao escrever cabeçalho: %w", err)
+        }
 
-	writer := csv.NewWriter(arquivo)
-	writer.Comma = ';'
+        // Obter a data e hora atual
+        dataAtual := time.Now().Format("2006-01-02 15:04:05")
 
-	cabecalhos := []string{
-		"Host ID", "Host Nome", "Status", "Item 1 ID", "Item 1 Nome",
-		"Item 2 ID", "Item 2 Nome", "Trigger 1 ID", "Trigger 1 Descrição",
-		"Trigger 2 ID", "Trigger 2 Descrição",
-	}
-	
-	if err := writer.Write(cabecalhos); err != nil {
-		return fmt.Errorf("erro ao escrever os cabeçalhos no arquivo CSV: %w", err)
-	}
+        // Escrever dados de cada host
+        for _, host := range hosts {
+                status := StatusHost[host.Status]
+                if status == "" {
+                        status = "Desconhecido"
+                }
 
-	for _, host := range hosts {
-		status, ok := StatusHost[host.Status]
-		if !ok {
-			status = "Desconhecido"
-		}
+                linha := []string{
+                        host.ID,
+                        host.Nome,
+                        status,
+                        fmt.Sprintf("%d", len(host.Items)),
+                        fmt.Sprintf("%d", len(host.Triggers)),
+                        dataAtual,
+                }
 
-		itemCols := []string{}
-		for i, item := range host.Items {
-			itemCols = append(itemCols, item.ID, item.Nome)
-			if i == 1 {
-				break
-			}
-		}
+                if err := escritor.Write(linha); err != nil {
+                        return fmt.Errorf("erro ao escrever linha: %w", err)
+                }
+        }
 
-		// Garantir que temos pelo menos 4 colunas para itens (2 itens)
-		for len(itemCols) < 4 {
-			itemCols = append(itemCols, "", "")
-		}
-
-		triggerCols := []string{}
-		for i, trigger := range host.Triggers {
-			triggerCols = append(triggerCols, trigger.ID, trigger.Nome)
-			if i == 1 {
-				break
-			}
-		}
-
-		// Garantir que temos pelo menos 4 colunas para triggers (2 triggers)
-		for len(triggerCols) < 4 {
-			triggerCols = append(triggerCols, "", "")
-		}
-
-		linha := []string{
-			host.ID,
-			host.Nome,
-			status,
-		}
-		linha = append(linha, itemCols...)
-		linha = append(linha, triggerCols...)
-
-		if err := writer.Write(linha); err != nil {
-			return fmt.Errorf("erro ao escrever os dados no arquivo CSV: %w", err)
-		}
-	}
-
-	writer.Flush()
-	
-	if err := writer.Error(); err != nil {
-		return fmt.Errorf("erro ao finalizar o arquivo CSV: %w", err)
-	}
-
-	return nil
+        return nil
 }

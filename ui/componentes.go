@@ -1,36 +1,39 @@
 package ui
 
 import (
-	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/storage"
-	"image/color"
+        "path/filepath"
+        "strings"
+
+        "fyne.io/fyne/v2"
+        "fyne.io/fyne/v2/canvas"
+        "fyne.io/fyne/v2/storage"
+        "image/color"
 )
 
 // Cores da aplicação
 var (
-	CorPrincipal = color.NRGBA{R: 215, G: 43, B: 43, A: 255}  // Vermelho Zabbix
-	CorSecundaria = color.NRGBA{R: 68, G: 68, B: 68, A: 255}  // Cinza escuro
-	CorFundo = color.NRGBA{R: 250, G: 250, B: 250, A: 255}    // Quase branco
-	CorTexto = color.NRGBA{R: 33, G: 33, B: 33, A: 255}       // Quase preto
+        CorPrincipal = color.NRGBA{R: 215, G: 43, B: 43, A: 255}  // Vermelho Zabbix
+        CorSecundaria = color.NRGBA{R: 68, G: 68, B: 68, A: 255}  // Cinza escuro
+        CorFundo = color.NRGBA{R: 250, G: 250, B: 250, A: 255}    // Quase branco
+        CorTexto = color.NRGBA{R: 33, G: 33, B: 33, A: 255}       // Quase preto
 )
 
 // CarregarLogoZabbix carrega o logo do Zabbix
 func CarregarLogoZabbix() fyne.Resource {
-	// Retornar o recurso SVG embutido
-	recurso, _ := fyne.LoadResourceFromPath("./assets/zabbix_logo.svg")
-	if recurso == nil {
-		// Fallback para um recurso estático
-		recurso = logoZabbixResource
-	}
-	return recurso
+        // Retornar o recurso SVG embutido
+        recurso, _ := fyne.LoadResourceFromPath("./assets/zabbix_logo.svg")
+        if recurso == nil {
+                // Fallback para um recurso estático
+                recurso = logoZabbixResource
+        }
+        return recurso
 }
 
 // CriarElementoComCor cria um elemento com a cor especificada
 func CriarElementoComCor(cor color.Color) *canvas.Rectangle {
-	retangulo := canvas.NewRectangle(cor)
-	retangulo.SetMinSize(fyne.NewSize(20, 20))
-	return retangulo
+        retangulo := canvas.NewRectangle(cor)
+        retangulo.SetMinSize(fyne.NewSize(20, 20))
+        return retangulo
 }
 
 // Uma variável para evitar ter que carregar o recurso várias vezes
@@ -49,53 +52,53 @@ var logoZabbixResource = fyne.NewStaticResource("zabbix_logo", []byte(`
 `))
 
 // Estrutura para implementar fyne.URIWriteCloser para salvamento de arquivos
-type storage struct {
-	fyne.URI
+type uriWriteCloser struct {
+        fyne.URI
 }
 
-func (s *storage) Write(p []byte) (n int, err error) {
-	return 0, nil
+func (s *uriWriteCloser) Write(p []byte) (n int, err error) {
+        return 0, nil
 }
 
-func (s *storage) Close() error {
-	return nil
+func (s *uriWriteCloser) Close() error {
+        return nil
 }
 
 // NewExtensionFileFilter cria um filtro de arquivo por extensão
 func NewExtensionFileFilter(extensions []string) storage.FileFilter {
-	return &extensionFileFilter{extensions}
+        return &extensionFileFilter{extensions}
 }
 
 type extensionFileFilter struct {
-	extensions []string
+        extensions []string
 }
 
 func (e *extensionFileFilter) Matches(uri fyne.URI) bool {
-	if uri == nil || uri.String() == "" {
-		return true
-	}
+        if uri == nil || uri.String() == "" {
+                return true
+        }
 
-	path := uri.Path()
-	if path == "" {
-		return true
-	}
+        path := uri.Path()
+        if path == "" {
+                return true
+        }
 
-	for _, ext := range e.extensions {
-		if filepath.Ext(path) == ext {
-			return true
-		}
-	}
-	return false
+        for _, ext := range e.extensions {
+                if filepath.Ext(path) == ext {
+                        return true
+                }
+        }
+        return false
 }
 
 func (e *extensionFileFilter) String() string {
-	var builder strings.Builder
-	for i, ext := range e.extensions {
-		if i > 0 {
-			builder.WriteString(", ")
-		}
-		builder.WriteString("*")
-		builder.WriteString(ext)
-	}
-	return builder.String()
+        var builder strings.Builder
+        for i, ext := range e.extensions {
+                if i > 0 {
+                        builder.WriteString(", ")
+                }
+                builder.WriteString("*")
+                builder.WriteString(ext)
+        }
+        return builder.String()
 }
