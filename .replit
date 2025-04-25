@@ -1,0 +1,40 @@
+modules = ["go"]
+
+[nix]
+channel = "stable-24_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Zabbix Manager"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "run-go-app"
+
+[[workflows.workflow]]
+name = "Zabbix Manager"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "go mod init zabbix-manager && go mod tidy && go get fyne.io/fyne/v2@latest && go run main.go"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "run-go-app"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "go run main.go"
+
+[deployment]
+run = ["sh", "-c", "go mod init zabbix-manager && go mod tidy && go get fyne.io/fyne/v2@latest && go run main.go"]
