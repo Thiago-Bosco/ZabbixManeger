@@ -1,11 +1,11 @@
-modules = ["go"]
+modules = ["go-1.21", "web"]
 
 [nix]
 channel = "stable-24_05"
 packages = ["pkg-config", "xorg.libX11", "xorg.libXcursor", "xorg.libXrandr", "xorg.libXinerama", "xorg.libXi", "libGL"]
 
 [workflows]
-runButton = "Project"
+runButton = "Zabbix Manager"
 
 [[workflows.workflow]]
 name = "Project"
@@ -37,8 +37,17 @@ task = "shell.exec"
 args = "go run ."
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Zabbix Manager"
+author = 41956581
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "go run ."
+
 [deployment]
-run = ["sh", "-c", "go mod init zabbix-manager && go mod tidy && go get fyne.io/fyne/v2@latest && go run main.go"]
+run = ["sh", "-c", "go run ."]
 
 [[ports]]
 localPort = 5000
