@@ -1,208 +1,219 @@
 package zabbix
 
 import (
-        "bytes"
-        "encoding/json"
-        "fmt"
-        "net/http"
-        "time"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"time"
 )
 
-// ClienteAPI representa o cliente de API do Zabbix
+// ConfigAPI define as configurações para a API do Zabbix
+type ConfigAPI struct {
+	URL         string
+	Token       string
+	TempoLimite int
+}
+
+// ClienteAPI representa um cliente para a API do Zabbix
 type ClienteAPI struct {
-        Config     ConfigAPI
-        HTTPClient *http.Client
+	URL         string
+	Token       string
+	Cliente     *http.Client
+	TempoLimite int
 }
 
-// NovoClienteAPI cria uma nova instância do cliente de API do Zabbix
+// NovoClienteAPI cria um novo cliente para a API do Zabbix
 func NovoClienteAPI(config ConfigAPI) *ClienteAPI {
-        // Se o tempo limite não estiver configurado, usar 30 segundos como padrão
-        if config.TempoLimite <= 0 {
-                config.TempoLimite = 30
-        }
+	// Usar tempo limite padrão de 30 segundos se não for especificado
+	timeout := config.TempoLimite
+	if timeout <= 0 {
+		timeout = 30
+	}
 
-        return &ClienteAPI{
-                Config: config,
-                HTTPClient: &http.Client{
-                        Timeout: time.Duration(config.TempoLimite) * time.Second,
-                },
-        }
+	return &ClienteAPI{
+		URL:         config.URL,
+		Token:       config.Token,
+		Cliente:     &http.Client{Timeout: time.Duration(timeout) * time.Second},
+		TempoLimite: timeout,
+	}
 }
 
-// ObterHosts retorna todos os hosts cadastrados no Zabbix
-func (c *ClienteAPI) ObterHosts() ([]Host, error) {
-        cabecalhos := map[string]string{
-                "Content-Type": "application/json-rpc",
-        }
-
-        pedido := map[string]interface{}{
-                "jsonrpc": "2.0",
-                "method":  "host.get",
-                "params": map[string]interface{}{
-                        "output":         []string{"hostid", "host", "status"},
-                        "selectItems":    []string{"itemid", "name"},
-                        "selectTriggers": []string{"triggerid", "description"},
-                },
-                "auth": c.Config.Token,
-                "id":   1,
-        }
-
-        var resposta Resposta
-        erro := c.enviarRequisicao(c.Config.URL, cabecalhos, pedido, &resposta)
-        if erro != nil {
-                return nil, erro
-        }
-
-        return resposta.Resultados, nil
-}
-
-// TestarConexao testa a conexão com a API do Zabbix
+// TestarConexao testa a conexão com o servidor Zabbix
 func (c *ClienteAPI) TestarConexao() error {
-        cabecalhos := map[string]string{
-                "Content-Type": "application/json-rpc",
-        }
+	// Criar uma requisição simples para testar a conexão
+	requisicao := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "apiinfo.version",
+		"params":  []string{},
+		"id":      1,
+	}
 
-        pedido := map[string]interface{}{
-                "jsonrpc": "2.0",
-                "method":  "apiinfo.version",
-                "params":  map[string]interface{}{},
-                "id":      1,
-        }
+	// Enviar a requisição
+	resposta, err := c.enviarRequisicao(requisicao)
+	if err != nil {
+		return fmt.Errorf("erro ao testar conexão: %w", err)
+	}
 
-        var resposta interface{}
-        return c.enviarRequisicao(c.Config.URL, cabecalhos, pedido, &resposta)
+	// Verificar se há erro na resposta
+	if resposta["error"] != nil {
+		erro := resposta["error"].(map[string]interface{})
+		return fmt.Errorf("erro da API: %s", erro["data"])
+	}
+
+	return nil
 }
 
-// ObterHostsFiltrados retorna hosts filtrados por termo de busca
-func (c *ClienteAPI) ObterHostsFiltrados(termoBusca string) ([]Host, error) {
-        cabecalhos := map[string]string{
-                "Content-Type": "application/json-rpc",
-        }
+// ObterHosts retorna todos os hosts do servidor Zabbix
+func (c *ClienteAPI) ObterHosts() ([]Host, error) {
+	log.Println("Obtendo hosts do servidor Zabbix...")
 
-        pedido := map[string]interface{}{
-                "jsonrpc": "2.0",
-                "method":  "host.get",
-                "params": map[string]interface{}{
-                        "output":         []string{"hostid", "host", "status"},
-                        "selectItems":    []string{"itemid", "name"},
-                        "selectTriggers": []string{"triggerid", "description"},
-                        "search": map[string]string{
-                                "host": termoBusca,
-                        },
-                        "searchByAny": true,
-                },
-                "auth": c.Config.Token,
-                "id":   1,
-        }
+	// Montar a requisição para obter os hosts
+	requisicao := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "host.get",
+		"params": map[string]interface{}{
+			"output":    "extend",
+			"selectItems": []string{"itemid", "name", "key_", "status"},
+			"selectTriggers": []string{"triggerid", "description", "status", "priority"},
+		},
+		"auth": c.Token,
+		"id":   1,
+	}
 
-        var resposta Resposta
-        erro := c.enviarRequisicao(c.Config.URL, cabecalhos, pedido, &resposta)
-        if erro != nil {
-                return nil, erro
-        }
+	// Enviar a requisição
+	resposta, err := c.enviarRequisicao(requisicao)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao obter hosts: %w", err)
+	}
 
-        return resposta.Resultados, nil
-}
+	// Verificar se há erro na resposta
+	if resposta["error"] != nil {
+		erro := resposta["error"].(map[string]interface{})
+		return nil, fmt.Errorf("erro da API: %s", erro["data"])
+	}
 
-// AutenticarComToken define o token diretamente, sem autenticação
-func (c *ClienteAPI) AutenticarComToken(token string) {
-        c.Config.Token = token
-}
+	// Processar a resposta
+	hostsRaw, ok := resposta["result"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("formato de resposta inválido")
+	}
 
-// Autenticar realiza a autenticação na API do Zabbix
-func (c *ClienteAPI) Autenticar(usuario, senha string) (string, error) {
-        cabecalhos := map[string]string{
-                "Content-Type": "application/json-rpc",
-        }
+	// Converter para o tipo Host
+	hosts := []Host{}
+	for _, hostRaw := range hostsRaw {
+		hostMap := hostRaw.(map[string]interface{})
+		
+		// Processar itens
+		var items []Item
+		itemsRaw, ok := hostMap["items"].([]interface{})
+		if ok {
+			for _, itemRaw := range itemsRaw {
+				itemMap := itemRaw.(map[string]interface{})
+				status := "0" // Padrão: ativo
+				if statusRaw, ok := itemMap["status"].(string); ok {
+					status = statusRaw
+				}
 
-        pedido := map[string]interface{}{
-                "jsonrpc": "2.0",
-                "method":  "user.login",
-                "params": map[string]string{
-                        "user":     usuario,
-                        "password": senha,
-                },
-                "id": 1,
-        }
+				item := Item{
+					ID:     itemMap["itemid"].(string),
+					Nome:   itemMap["name"].(string),
+					Chave:  itemMap["key_"].(string),
+					Status: status,
+				}
+				items = append(items, item)
+			}
+		}
 
-        type RespostaAuth struct {
-                Jsonrpc string `json:"jsonrpc"`
-                Result  string `json:"result"`
-                ID      int    `json:"id"`
-                Error   *struct {
-                        Code    int    `json:"code"`
-                        Message string `json:"message"`
-                        Data    string `json:"data"`
-                } `json:"error"`
-        }
+		// Processar triggers
+		var triggers []Trigger
+		triggersRaw, ok := hostMap["triggers"].([]interface{})
+		if ok {
+			for _, triggerRaw := range triggersRaw {
+				triggerMap := triggerRaw.(map[string]interface{})
+				
+				status := "0" // Padrão: ativo
+				if statusRaw, ok := triggerMap["status"].(string); ok {
+					status = statusRaw
+				}
+				
+				prioridade := "0" // Padrão: não classificada
+				if prioridadeRaw, ok := triggerMap["priority"].(string); ok {
+					prioridade = prioridadeRaw
+				}
 
-        var resposta RespostaAuth
-        erro := c.enviarRequisicao(c.Config.URL, cabecalhos, pedido, &resposta)
-        if erro != nil {
-                return "", erro
-        }
+				trigger := Trigger{
+					ID:          triggerMap["triggerid"].(string),
+					Descricao:   triggerMap["description"].(string),
+					Status:      status,
+					Prioridade:  prioridade,
+				}
+				triggers = append(triggers, trigger)
+			}
+		}
 
-        // Verificar se houve erro na API
-        if resposta.Error != nil {
-                return "", fmt.Errorf("erro na API Zabbix: %s - %s", resposta.Error.Message, resposta.Error.Data)
-        }
+		status := "0" // Padrão: ativo
+		if statusRaw, ok := hostMap["status"].(string); ok {
+			status = statusRaw
+		}
 
-        if resposta.Result == "" {
-                return "", fmt.Errorf("falha na autenticação: token vazio")
-        }
+		host := Host{
+			ID:       hostMap["hostid"].(string),
+			Nome:     hostMap["name"].(string),
+			Status:   status,
+			Items:    items,
+			Triggers: triggers,
+		}
+		hosts = append(hosts, host)
+	}
 
-        // Atualizar o token no cliente
-        c.Config.Token = resposta.Result
-        return resposta.Result, nil
-}
-
-// VerificarAutenticação verifica se o token atual é válido
-func (c *ClienteAPI) VerificarAutenticação() bool {
-        // Se não tiver token, não está autenticado
-        if c.Config.Token == "" {
-                return false
-        }
-
-        // Testar com uma chamada simples
-        hosts, err := c.ObterHosts()
-        if err != nil {
-                return false
-        }
-
-        // Se não retornou erro, o token é válido
-        return len(hosts) >= 0
+	log.Printf("Obtidos %d hosts do servidor Zabbix", len(hosts))
+	return hosts, nil
 }
 
 // enviarRequisicao envia uma requisição para a API do Zabbix
-func (c *ClienteAPI) enviarRequisicao(url string, cabecalhos map[string]string, pedido map[string]interface{}, resposta interface{}) error {
-        pedidoBytes, erro := json.Marshal(pedido)
-        if erro != nil {
-                return fmt.Errorf("erro ao criar o pedido JSON: %w", erro)
-        }
+func (c *ClienteAPI) enviarRequisicao(dados map[string]interface{}) (map[string]interface{}, error) {
+	// Converter a requisição para JSON
+	jsonData, err := json.Marshal(dados)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao serializar requisição: %w", err)
+	}
 
-        req, erro := http.NewRequest("POST", url, bytes.NewBuffer(pedidoBytes))
-        if erro != nil {
-                return fmt.Errorf("erro ao criar a requisição: %w", erro)
-        }
+	// Criar a requisição HTTP
+	req, err := http.NewRequest("POST", c.URL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+	}
 
-        for chave, valor := range cabecalhos {
-                req.Header.Set(chave, valor)
-        }
+	// Configurar headers
+	req.Header.Set("Content-Type", "application/json")
 
-        resp, erro := c.HTTPClient.Do(req)
-        if erro != nil {
-                return fmt.Errorf("erro na requisição: %w", erro)
-        }
-        defer resp.Body.Close()
+	// Enviar a requisição
+	resp, err := c.Cliente.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao enviar requisição: %w", err)
+	}
+	defer resp.Body.Close()
 
-        if resp.StatusCode != 200 {
-                return fmt.Errorf("erro na requisição, código de status: %d", resp.StatusCode)
-        }
+	// Ler a resposta
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler resposta: %w", err)
+	}
 
-        erro = json.NewDecoder(resp.Body).Decode(resposta)
-        if erro != nil {
-                return fmt.Errorf("erro ao decodificar a resposta JSON: %w", erro)
-        }
+	// Verificar código de status
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status inválido: %d - %s", resp.StatusCode, string(body))
+	}
 
-        return nil
+	// Converter a resposta de JSON para map
+	var resultado map[string]interface{}
+	err = json.Unmarshal(body, &resultado)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao desserializar resposta: %w", err)
+	}
+
+	return resultado, nil
 }

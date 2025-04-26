@@ -1,448 +1,415 @@
 package ui
 
 import (
+        "fmt"
+        "net/url"
         "strings"
 
         "fyne.io/fyne/v2"
+        "fyne.io/fyne/v2/canvas"
         "fyne.io/fyne/v2/container"
-        "fyne.io/fyne/v2/dialog"
         "fyne.io/fyne/v2/layout"
         "fyne.io/fyne/v2/theme"
         "fyne.io/fyne/v2/widget"
-
         "zabbix-manager/config"
 )
 
-// criarTelaLogin cria a tela de login
-func criarTelaLogin(janela fyne.Window, config *config.Configuração, perfilAtual config.Perfil,
-        fnAutenticar func(string, string, bool, string),
-        fnAutenticarToken func(string, bool, string),
-        fnSelecionarPerfil func(string),
-        fnGerenciarPerfis func()) fyne.CanvasObject {
+// TelaLogin representa a tela de login do aplicativo
+type TelaLogin struct {
+        App                     *AplicacaoZabbix
+        Container               *fyne.Container
+        TabContainer           *container.AppTabs
+        TabAtual                int
+        ComboServidores         *widget.Select
+        CampoURL                *widget.Entry
+        CampoToken              *widget.Entry
+        CampoPerfil             *widget.Entry
+        BotaoAdicionar          *widget.Button
+        BotaoEditar             *widget.Button
+        BotaoRemover            *widget.Button
+        BotaoEntrar             *widget.Button
+        ListaPerfis             []config.ConfiguracaoPerfil
+}
 
-        // Guias para os métodos de autenticação
-        tabLogin := container.NewTabItem("Login com Usuário/Senha", nil)
-        tabToken := container.NewTabItem("Login com Token", nil)
-
-        // Campo para selecionar o perfil
-        selecionadorPerfil := widget.NewSelect(obterNomesPerfis(config), func(nomePerfil string) {
-                if nomePerfil != perfilAtual.Nome {
-                        fnSelecionarPerfil(nomePerfil)
-                }
-        })
-        selecionadorPerfil.Selected = perfilAtual.Nome
-
-        // Botão para gerenciar perfis
-        botaoGerenciarPerfis := widget.NewButtonWithIcon("Gerenciar Perfis", theme.SettingsIcon(), fnGerenciarPerfis)
-        
-        // Nome do novo perfil
-        entradaNomePerfil := widget.NewEntry()
-        entradaNomePerfil.SetPlaceHolder("Nome do perfil (opcional)")
-
-        // Campo de URL da API
-        entradaURL := widget.NewEntry()
-        entradaURL.Text = perfilAtual.URL
-        entradaURL.SetPlaceHolder("URL da API do Zabbix")
-
-        // ===== Tab de Login com Usuário/Senha =====
-        // Campo de usuário
-        entradaUsuario := widget.NewEntry()
-        entradaUsuario.SetPlaceHolder("Nome de usuário")
-        
-        // Preencher com o usuário salvo, se existir
-        if perfilAtual.Salvar && perfilAtual.Usuário != "" {
-                entradaUsuario.Text = perfilAtual.Usuário
+// MostrarTelaLogin exibe a tela de login
+func (a *AplicacaoZabbix) MostrarTelaLogin() {
+        tela := &TelaLogin{
+                App:       a,
+                TabAtual:  0,
+                ListaPerfis: a.Config.Perfis,
         }
 
-        // Campo de senha
-        entradaSenha := widget.NewPasswordEntry()
-        entradaSenha.SetPlaceHolder("Senha")
-        
-        // Preencher com a senha salva, se existir
-        if perfilAtual.Salvar && perfilAtual.Senha != "" {
-                entradaSenha.Text = perfilAtual.Senha
-        }
+        tela.CriarInterface()
+        a.Janela.SetContent(tela.Container)
+}
 
-        // Checkbox para salvar credenciais
-        checkboxSalvarCredenciais := widget.NewCheck("Salvar credenciais", nil)
-        checkboxSalvarCredenciais.Checked = perfilAtual.Salvar
+// CriarInterface cria a interface da tela de login
+func (t *TelaLogin) CriarInterface() {
+        // Criação dos widgets
+        t.CriarWidgets()
 
-        // Botão de login com usuário/senha
-        botaoLoginUsuario := widget.NewButton("Entrar", func() {
-                // Validar campos
-                if entradaUsuario.Text == "" || entradaSenha.Text == "" {
-                        dialog.ShowError(fyne.NewError(1, "Por favor, informe o usuário e senha"), janela)
-                        return
-                }
-                
-                if entradaURL.Text == "" {
-                        dialog.ShowError(fyne.NewError(1, "Por favor, informe a URL da API"), janela)
-                        return
-                }
-                
-                // Atualizar a URL na configuração
-                perfil := perfilAtual
-                perfil.URL = entradaURL.Text
-                
-                // Determinar o nome do perfil
-                nomePerfil := selecionadorPerfil.Selected
-                if entradaNomePerfil.Text != "" {
-                        nomePerfil = entradaNomePerfil.Text
-                }
-                
-                // Chamar a função de autenticação
-                fnAutenticar(
-                        entradaUsuario.Text, 
-                        entradaSenha.Text, 
-                        checkboxSalvarCredenciais.Checked,
-                        nomePerfil,
-                )
-        })
-
-        // Layout da tab de login com usuário/senha
-        tabLogin.Content = container.NewVBox(
-                container.NewGridWithColumns(2,
-                        widget.NewLabel("Usuário:"),
-                        entradaUsuario,
-                ),
-                container.NewGridWithColumns(2,
-                        widget.NewLabel("Senha:"),
-                        entradaSenha,
-                ),
-                checkboxSalvarCredenciais,
-                container.NewHBox(
-                        layout.NewSpacer(),
-                        botaoLoginUsuario,
-                ),
-        )
-
-        // ===== Tab de Login com Token =====
-        // Campo de token
-        entradaToken := widget.NewPasswordEntry()
-        entradaToken.SetPlaceHolder("Token de autenticação da API")
-
-        // Checkbox para salvar token
-        checkboxSalvarToken := widget.NewCheck("Salvar token", nil)
-        
-        // Botão de login com token
-        botaoLoginToken := widget.NewButton("Entrar com Token", func() {
-                // Validar campos
-                if entradaToken.Text == "" {
-                        dialog.ShowError(fyne.NewError(1, "Por favor, informe o token"), janela)
-                        return
-                }
-                
-                if entradaURL.Text == "" {
-                        dialog.ShowError(fyne.NewError(1, "Por favor, informe a URL da API"), janela)
-                        return
-                }
-                
-                // Atualizar a URL na configuração
-                perfil := perfilAtual
-                perfil.URL = entradaURL.Text
-                
-                // Determinar o nome do perfil
-                nomePerfil := selecionadorPerfil.Selected
-                if entradaNomePerfil.Text != "" {
-                        nomePerfil = entradaNomePerfil.Text
-                }
-                
-                // Chamar a função de autenticação com token
-                fnAutenticarToken(
-                        entradaToken.Text,
-                        checkboxSalvarToken.Checked,
-                        nomePerfil,
-                )
-        })
-
-        // Layout da tab de login com token
-        tabToken.Content = container.NewVBox(
-                container.NewGridWithColumns(2,
-                        widget.NewLabel("Token:"),
-                        entradaToken,
-                ),
-                checkboxSalvarToken,
-                container.NewHBox(
-                        layout.NewSpacer(),
-                        botaoLoginToken,
-                ),
-        )
-
-        // Configurar as tabs
-        tabs := container.NewAppTabs(
-                tabLogin,
-                tabToken,
-        )
-
-        // Logo
-        logoZabbix := widget.NewIcon(CarregarLogoZabbix())
-
-        // Seção do perfil (URL e seleção de perfil)
-        secaoPerfil := container.NewVBox(
-                container.NewGridWithColumns(2,
-                        widget.NewLabel("Perfil:"),
-                        container.NewBorder(nil, nil, nil, botaoGerenciarPerfis,
-                                selecionadorPerfil,
-                        ),
-                ),
-                container.NewGridWithColumns(2,
-                        widget.NewLabel("Nome do perfil:"),
-                        entradaNomePerfil,
-                ),
-                container.NewGridWithColumns(2,
-                        widget.NewLabel("URL API:"),
-                        entradaURL,
-                ),
-        )
-
-        // Organizar a interface
+        // Layout principal da tela
         titulo := widget.NewLabelWithStyle("Zabbix Manager", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-        titulo.TextSize = 20
 
-        conteudo := container.NewVBox(
-                container.NewCenter(logoZabbix),
-                titulo,
-                widget.NewSeparator(),
-                container.NewPadded(
-                        container.NewVBox(
-                                widget.NewLabel("Selecione o perfil ou crie um novo"),
-                                secaoPerfil,
-                                widget.NewSeparator(),
-                                widget.NewLabel("Informe seus dados de acesso"),
-                                tabs,
-                        ),
-                ),
+        imagem := canvas.NewImageFromFile("assets/logo.png")
+        imagem.FillMode = canvas.ImageFillContain
+        imagem.SetMinSize(fyne.NewSize(200, 100))
+
+        // Tabs de login
+        t.TabContainer = container.NewAppTabs(
+                container.NewTabItem("Login com Token", t.CriarFormularioLogin()),
+                container.NewTabItem("Gerenciar Perfis", t.CriarFormularioPerfis()),
         )
 
-        // Permitir enviar o formulário pressionando Enter
-        janela.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
-                if key.Name == fyne.KeyReturn {
-                        if tabs.Selected() == 0 {
-                                botaoLoginUsuario.OnTapped()
-                        } else {
-                                botaoLoginToken.OnTapped()
-                        }
-                }
-        })
+        t.TabContainer.SetTabLocation(container.TabLocationTop)
+        t.TabContainer.SelectIndex(t.TabAtual)
 
-        return conteudo
+        // Container principal
+        t.Container = container.NewVBox(
+                titulo,
+                container.NewHBox(layout.NewSpacer(), imagem, layout.NewSpacer()),
+                widget.NewSeparator(),
+                t.TabContainer,
+        )
 }
 
-// obterNomesPerfis retorna a lista de nomes dos perfis
-func obterNomesPerfis(config *config.Configuração) []string {
-        nomes := make([]string, len(config.PerfisZabbix))
-        for i, p := range config.PerfisZabbix {
-                nomes[i] = p.Nome
+// CriarWidgets cria os widgets da tela
+func (t *TelaLogin) CriarWidgets() {
+        // Campo URL
+        t.CampoURL = widget.NewEntry()
+        t.CampoURL.SetPlaceHolder("http://seu-servidor-zabbix/api_jsonrpc.php")
+
+        // Campo Token
+        t.CampoToken = widget.NewEntry()
+        t.CampoToken.Password = true
+        t.CampoToken.SetPlaceHolder("Token de API do Zabbix")
+
+        // Campo Nome do Perfil
+        t.CampoPerfil = widget.NewEntry()
+        t.CampoPerfil.SetPlaceHolder("Nome para identificar este servidor")
+
+        // Combo de servidores
+        t.AtualizarComboServidores()
+
+        // Botões
+        t.BotaoEntrar = widget.NewButton("Entrar", t.acaoEntrar)
+        t.BotaoAdicionar = widget.NewButton("Adicionar Perfil", t.acaoAdicionarPerfil)
+        t.BotaoEditar = widget.NewButton("Editar Perfil", t.acaoEditarPerfil)
+        t.BotaoRemover = widget.NewButton("Remover", t.acaoRemoverPerfil)
+
+        // Desabilitar botões de edição/remoção se não houver perfis
+        t.atualizarEstadoBotoes()
+}
+
+// AtualizarComboServidores atualiza o combo de servidores com os perfis disponíveis
+func (t *TelaLogin) AtualizarComboServidores() {
+        nomesPerfis := []string{}
+        for _, perfil := range t.ListaPerfis {
+                nomesPerfis = append(nomesPerfis, perfil.Nome)
         }
-        return nomes
+
+        var valorSelecionado string
+        if t.ComboServidores != nil && t.ComboServidores.Selected != "" {
+                valorSelecionado = t.ComboServidores.Selected
+        } else if t.App.Config.PerfilAtual >= 0 && t.App.Config.PerfilAtual < len(t.ListaPerfis) {
+                valorSelecionado = t.ListaPerfis[t.App.Config.PerfilAtual].Nome
+        } else if len(nomesPerfis) > 0 {
+                valorSelecionado = nomesPerfis[0]
+        }
+
+        t.ComboServidores = widget.NewSelect(nomesPerfis, t.acaoSelecionarPerfil)
+        if valorSelecionado != "" {
+                t.ComboServidores.SetSelected(valorSelecionado)
+        }
 }
 
-// criarTelaPerfis cria a tela de gerenciamento de perfis
-func criarTelaPerfis(janela fyne.Window, config *config.Configuração, 
-        fnAtualizarPerfil func(config.Perfil), 
-        fnExcluirPerfil func(string)) fyne.CanvasObject {
-        
-        var perfilSelecionado config.Perfil
-        var indiceSelecionado int = -1
-        
-        // Tabela de perfis
-        tabelaPerfis := widget.NewTable(
-                func() (int, int) {
-                        return len(config.PerfisZabbix) + 1, 4 // Cabeçalho + linhas, 4 colunas
-                },
-                func() fyne.CanvasObject {
-                        return widget.NewLabel("Carregando...")
-                },
-                func(id widget.TableCellID, obj fyne.CanvasObject) {
-                        label := obj.(*widget.Label)
-                        label.Alignment = fyne.TextAlignLeading
-                        
-                        // Cabeçalho
-                        if id.Row == 0 {
-                                label.TextStyle = fyne.TextStyle{Bold: true}
-                                switch id.Col {
-                                case 0:
-                                        label.SetText("Nome")
-                                case 1:
-                                        label.SetText("URL")
-                                case 2:
-                                        label.SetText("Tem token?")
-                                case 3:
-                                        label.SetText("Lembrar?")
-                                }
+// CriarFormularioLogin cria o formulário de login
+func (t *TelaLogin) CriarFormularioLogin() *fyne.Container {
+        var formWidget fyne.CanvasObject
+
+        if len(t.ListaPerfis) > 0 {
+                // Se houver perfis, mostrar o combo de seleção
+                formWidget = container.NewVBox(
+                        widget.NewLabelWithStyle("Selecione o servidor Zabbix:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+                        t.ComboServidores,
+                        container.NewHBox(layout.NewSpacer(), t.BotaoEntrar, layout.NewSpacer()),
+                )
+        } else {
+                // Se não houver perfis, mostrar mensagem informativa
+                formWidget = container.NewVBox(
+                        widget.NewLabelWithStyle("Não há servidores Zabbix configurados", fyne.TextAlignCenter, fyne.TextStyle{}),
+                        widget.NewLabelWithStyle("Adicione um perfil na aba 'Gerenciar Perfis'", fyne.TextAlignCenter, fyne.TextStyle{}),
+                )
+        }
+
+        return container.NewVBox(
+                formWidget,
+        )
+}
+
+// CriarFormularioPerfis cria o formulário de gerenciamento de perfis
+func (t *TelaLogin) CriarFormularioPerfis() *fyne.Container {
+        return container.NewVBox(
+                widget.NewLabelWithStyle("URL do servidor Zabbix:", fyne.TextAlignLeading, fyne.TextStyle{}),
+                t.CampoURL,
+                widget.NewLabelWithStyle("Token de API:", fyne.TextAlignLeading, fyne.TextStyle{}),
+                t.CampoToken,
+                widget.NewLabelWithStyle("Nome do Perfil:", fyne.TextAlignLeading, fyne.TextStyle{}),
+                t.CampoPerfil,
+                container.NewHBox(
+                        t.BotaoAdicionar,
+                        layout.NewSpacer(),
+                        t.BotaoEditar,
+                        layout.NewSpacer(),
+                        t.BotaoRemover,
+                ),
+        )
+}
+
+// atualizarEstadoBotoes atualiza o estado dos botões baseado nos perfis disponíveis
+func (t *TelaLogin) atualizarEstadoBotoes() {
+        temPerfis := len(t.ListaPerfis) > 0
+        t.BotaoEditar.Disabled = !temPerfis
+        t.BotaoRemover.Disabled = !temPerfis
+}
+
+// acaoEntrar processa a ação de entrar no sistema
+func (t *TelaLogin) acaoEntrar() {
+        if len(t.ListaPerfis) == 0 {
+                t.App.MostrarErro("Erro", "Não há perfis configurados")
+                t.TabContainer.SelectIndex(1) // Mudar para a aba de gerenciamento de perfis
+                return
+        }
+
+        // Obter o índice do perfil selecionado
+        perfilSelecionado := t.ComboServidores.Selected
+        var indice int = -1
+        for i, p := range t.ListaPerfis {
+                if p.Nome == perfilSelecionado {
+                        indice = i
+                        break
+                }
+        }
+
+        if indice < 0 {
+                t.App.MostrarErro("Erro", "Perfil não encontrado")
+                return
+        }
+
+        // Selecionar o perfil
+        err := t.App.SelecionarPerfil(indice)
+        if err != nil {
+                t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao selecionar perfil: %v", err))
+                return
+        }
+
+        // Testar a conexão
+        perfil := t.ListaPerfis[indice]
+        err = t.App.TestarConexao(perfil.URL, perfil.Token)
+        if err != nil {
+                t.App.MostrarErro("Erro de Conexão", fmt.Sprintf("Não foi possível conectar ao servidor Zabbix: %v", err))
+                return
+        }
+
+        // Se chegou aqui, a conexão foi bem-sucedida
+        t.App.MostrarTelaPrincipal()
+}
+
+// acaoSelecionarPerfil processa a ação de selecionar um perfil no combo
+func (t *TelaLogin) acaoSelecionarPerfil(nomePerfil string) {
+        // Preencher os campos com os dados do perfil selecionado
+        for _, p := range t.ListaPerfis {
+                if p.Nome == nomePerfil {
+                        t.CampoURL.Text = p.URL
+                        t.CampoToken.Text = p.Token
+                        t.CampoPerfil.Text = p.Nome
+                        t.CampoURL.Refresh()
+                        t.CampoToken.Refresh()
+                        t.CampoPerfil.Refresh()
+                        return
+                }
+        }
+}
+
+// acaoAdicionarPerfil processa a ação de adicionar um novo perfil
+func (t *TelaLogin) acaoAdicionarPerfil() {
+        // Validar campos
+        url := strings.TrimSpace(t.CampoURL.Text)
+        token := strings.TrimSpace(t.CampoToken.Text)
+        nome := strings.TrimSpace(t.CampoPerfil.Text)
+
+        if url == "" || token == "" || nome == "" {
+                t.App.MostrarErro("Erro", "Todos os campos são obrigatórios")
+                return
+        }
+
+        // Validar URL
+        _, err := url.Parse(url)
+        if err != nil {
+                t.App.MostrarErro("URL Inválida", "A URL informada não é válida")
+                return
+        }
+
+        // Testar a conexão
+        err = t.App.TestarConexao(url, token)
+        if err != nil {
+                t.App.MostrarErro("Erro de Conexão", fmt.Sprintf("Não foi possível conectar ao servidor Zabbix: %v", err))
+                return
+        }
+
+        // Criar e adicionar o perfil
+        perfil := config.ConfiguracaoPerfil{
+                Nome:  nome,
+                URL:   url,
+                Token: token,
+        }
+
+        err = t.App.AdicionarPerfil(perfil)
+        if err != nil {
+                t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao adicionar perfil: %v", err))
+                return
+        }
+
+        // Atualizar a lista de perfis
+        t.ListaPerfis = t.App.Config.Perfis
+        t.AtualizarComboServidores()
+        t.atualizarEstadoBotoes()
+
+        // Limpar os campos
+        t.CampoURL.Text = ""
+        t.CampoToken.Text = ""
+        t.CampoPerfil.Text = ""
+        t.CampoURL.Refresh()
+        t.CampoToken.Refresh()
+        t.CampoPerfil.Refresh()
+
+        // Mostrar mensagem de sucesso
+        t.App.MostrarInfo("Sucesso", "Perfil adicionado com sucesso")
+
+        // Mudar para a aba de login
+        t.TabContainer.SelectIndex(0)
+}
+
+// acaoEditarPerfil processa a ação de editar um perfil existente
+func (t *TelaLogin) acaoEditarPerfil() {
+        if len(t.ListaPerfis) == 0 {
+                t.App.MostrarErro("Erro", "Não há perfis para editar")
+                return
+        }
+
+        // Validar campos
+        url := strings.TrimSpace(t.CampoURL.Text)
+        token := strings.TrimSpace(t.CampoToken.Text)
+        nome := strings.TrimSpace(t.CampoPerfil.Text)
+
+        if url == "" || token == "" || nome == "" {
+                t.App.MostrarErro("Erro", "Todos os campos são obrigatórios")
+                return
+        }
+
+        // Validar URL
+        _, err := url.Parse(url)
+        if err != nil {
+                t.App.MostrarErro("URL Inválida", "A URL informada não é válida")
+                return
+        }
+
+        // Testar a conexão
+        err = t.App.TestarConexao(url, token)
+        if err != nil {
+                t.App.MostrarErro("Erro de Conexão", fmt.Sprintf("Não foi possível conectar ao servidor Zabbix: %v", err))
+                return
+        }
+
+        // Obter o índice do perfil selecionado
+        perfilSelecionado := t.ComboServidores.Selected
+        var indice int = -1
+        for i, p := range t.ListaPerfis {
+                if p.Nome == perfilSelecionado {
+                        indice = i
+                        break
+                }
+        }
+
+        if indice < 0 {
+                t.App.MostrarErro("Erro", "Selecione um perfil para editar")
+                return
+        }
+
+        // Criar e atualizar o perfil
+        perfil := config.ConfiguracaoPerfil{
+                Nome:  nome,
+                URL:   url,
+                Token: token,
+        }
+
+        err = t.App.AtualizarPerfil(indice, perfil)
+        if err != nil {
+                t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao atualizar perfil: %v", err))
+                return
+        }
+
+        // Atualizar a lista de perfis
+        t.ListaPerfis = t.App.Config.Perfis
+        t.AtualizarComboServidores()
+
+        // Mostrar mensagem de sucesso
+        t.App.MostrarInfo("Sucesso", "Perfil atualizado com sucesso")
+}
+
+// acaoRemoverPerfil processa a ação de remover um perfil existente
+func (t *TelaLogin) acaoRemoverPerfil() {
+        if len(t.ListaPerfis) == 0 {
+                t.App.MostrarErro("Erro", "Não há perfis para remover")
+                return
+        }
+
+        // Obter o índice do perfil selecionado
+        perfilSelecionado := t.ComboServidores.Selected
+        var indice int = -1
+        for i, p := range t.ListaPerfis {
+                if p.Nome == perfilSelecionado {
+                        indice = i
+                        break
+                }
+        }
+
+        if indice < 0 {
+                t.App.MostrarErro("Erro", "Selecione um perfil para remover")
+                return
+        }
+
+        // Pedir confirmação
+        t.App.MostrarConfirmacao(
+                "Remover Perfil",
+                fmt.Sprintf("Deseja realmente remover o perfil '%s'?", perfilSelecionado),
+                func(confirmar bool) {
+                        if !confirmar {
                                 return
                         }
-                        
-                        // Dados
-                        if id.Row-1 < len(config.PerfisZabbix) {
-                                perfil := config.PerfisZabbix[id.Row-1]
-                                switch id.Col {
-                                case 0:
-                                        label.SetText(perfil.Nome)
-                                        if perfil.Nome == config.PerfilAtivo {
-                                                label.TextStyle = fyne.TextStyle{Bold: true}
-                                        }
-                                case 1:
-                                        label.SetText(perfil.URL)
-                                case 2:
-                                        if perfil.Token != "" {
-                                                label.SetText("Sim")
-                                        } else {
-                                                label.SetText("Não")
-                                        }
-                                case 3:
-                                        if perfil.Salvar {
-                                                label.SetText("Sim")
-                                        } else {
-                                                label.SetText("Não")
-                                        }
-                                }
+
+                        // Remover o perfil
+                        err := t.App.RemoverPerfil(indice)
+                        if err != nil {
+                                t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao remover perfil: %v", err))
+                                return
                         }
+
+                        // Atualizar a lista de perfis
+                        t.ListaPerfis = t.App.Config.Perfis
+                        t.AtualizarComboServidores()
+                        t.atualizarEstadoBotoes()
+
+                        // Limpar os campos
+                        t.CampoURL.Text = ""
+                        t.CampoToken.Text = ""
+                        t.CampoPerfil.Text = ""
+                        t.CampoURL.Refresh()
+                        t.CampoToken.Refresh()
+                        t.CampoPerfil.Refresh()
+
+                        // Mostrar mensagem de sucesso
+                        t.App.MostrarInfo("Sucesso", "Perfil removido com sucesso")
                 },
         )
-        
-        // Ajustar tamanho das colunas
-        tabelaPerfis.SetColumnWidth(0, 150)
-        tabelaPerfis.SetColumnWidth(1, 250)
-        tabelaPerfis.SetColumnWidth(2, 100)
-        tabelaPerfis.SetColumnWidth(3, 100)
-        
-        // Selecionar um perfil na tabela
-        tabelaPerfis.OnSelected = func(id widget.TableCellID) {
-                if id.Row == 0 || id.Row-1 >= len(config.PerfisZabbix) {
-                        return
-                }
-                
-                indiceSelecionado = id.Row - 1
-                perfilSelecionado = config.PerfisZabbix[indiceSelecionado]
-        }
-        
-        // Formulário para editar/criar perfil
-        nomePerfil := widget.NewEntry()
-        nomePerfil.SetPlaceHolder("Nome do perfil")
-        
-        urlPerfil := widget.NewEntry()
-        urlPerfil.SetPlaceHolder("URL da API do Zabbix")
-        
-        salvarPerfil := widget.NewCheck("Salvar credenciais", nil)
-        
-        // Botões de ação
-        botaoNovo := widget.NewButton("Novo Perfil", func() {
-                nomePerfil.SetText("")
-                urlPerfil.SetText("http://localhost/zabbix/api_jsonrpc.php")
-                salvarPerfil.SetChecked(false)
-                indiceSelecionado = -1
-        })
-        
-        botaoExcluir := widget.NewButton("Excluir", func() {
-                if indiceSelecionado >= 0 && indiceSelecionado < len(config.PerfisZabbix) {
-                        // Confirmar exclusão
-                        dialog.ShowConfirm(
-                                "Excluir perfil",
-                                "Tem certeza que deseja excluir o perfil '" + perfilSelecionado.Nome + "'?",
-                                func(confirma bool) {
-                                        if confirma {
-                                                fnExcluirPerfil(perfilSelecionado.Nome)
-                                                tabelaPerfis.Refresh()
-                                                indiceSelecionado = -1
-                                        }
-                                },
-                                janela,
-                        )
-                }
-        })
-        
-        botaoSalvar := widget.NewButton("Salvar", func() {
-                if strings.TrimSpace(nomePerfil.Text) == "" || strings.TrimSpace(urlPerfil.Text) == "" {
-                        dialog.ShowError(fyne.NewError(1, "Nome e URL são obrigatórios"), janela)
-                        return
-                }
-                
-                // Criar ou atualizar o perfil
-                var perfil config.Perfil
-                
-                if indiceSelecionado >= 0 && indiceSelecionado < len(config.PerfisZabbix) {
-                        // Atualizar perfil existente
-                        perfil = perfilSelecionado
-                        perfil.Nome = nomePerfil.Text
-                        perfil.URL = urlPerfil.Text
-                        perfil.Salvar = salvarPerfil.Checked
-                } else {
-                        // Novo perfil
-                        perfil = config.Perfil{
-                                Nome:     nomePerfil.Text,
-                                URL:      urlPerfil.Text,
-                                Token:    "",
-                                Usuário:  "",
-                                Senha:    "",
-                                Salvar:   salvarPerfil.Checked,
-                        }
-                }
-                
-                fnAtualizarPerfil(perfil)
-                tabelaPerfis.Refresh()
-                
-                dialog.ShowInformation("Sucesso", "Perfil salvo com sucesso!", janela)
-        })
-        
-        botaoFechar := widget.NewButton("Fechar", func() {
-                janela.Close()
-        })
-        
-        // Atualizar os campos quando selecionar um perfil
-        tabelaPerfis.OnSelected = func(id widget.TableCellID) {
-                if id.Row == 0 || id.Row-1 >= len(config.PerfisZabbix) {
-                        return
-                }
-                
-                indiceSelecionado = id.Row - 1
-                perfilSelecionado = config.PerfisZabbix[indiceSelecionado]
-                
-                nomePerfil.SetText(perfilSelecionado.Nome)
-                urlPerfil.SetText(perfilSelecionado.URL)
-                salvarPerfil.SetChecked(perfilSelecionado.Salvar)
-        }
-        
-        // Layout
-        formulario := widget.NewForm(
-                widget.NewFormItem("Nome", nomePerfil),
-                widget.NewFormItem("URL da API", urlPerfil),
-                widget.NewFormItem("", salvarPerfil),
-        )
-        
-        botoesAcao := container.NewHBox(
-                botaoNovo,
-                layout.NewSpacer(),
-                botaoExcluir,
-                botaoSalvar,
-                botaoFechar,
-        )
-        
-        conteudo := container.NewBorder(
-                container.NewVBox(
-                        widget.NewLabelWithStyle("Gerenciador de Perfis", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-                        widget.NewSeparator(),
-                ),
-                container.NewVBox(
-                        widget.NewSeparator(),
-                        botoesAcao,
-                ),
-                nil, nil,
-                container.NewVSplit(
-                        container.NewBorder(
-                                nil, 
-                                widget.NewLabel("Selecione um perfil na tabela para editar"),
-                                nil, nil, 
-                                tabelaPerfis,
-                        ),
-                        container.NewPadded(
-                                container.NewVBox(
-                                        widget.NewLabelWithStyle("Editar Perfil", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-                                        formulario,
-                                ),
-                        ),
-                ),
-        )
-        
-        return conteudo
 }

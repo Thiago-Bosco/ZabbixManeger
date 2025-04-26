@@ -2,56 +2,115 @@ package ui
 
 import (
         "fmt"
-        "path/filepath"
         "strconv"
         "strings"
-        "time"
 
         "fyne.io/fyne/v2"
         "fyne.io/fyne/v2/container"
-        "fyne.io/fyne/v2/dialog"
         "fyne.io/fyne/v2/layout"
         "fyne.io/fyne/v2/theme"
         "fyne.io/fyne/v2/widget"
-
         "zabbix-manager/zabbix"
 )
 
-// criarTelaPrincipal cria a tela principal da aplicação
-func criarTelaPrincipal(janela fyne.Window, cliente *zabbix.ClienteAPI, fnAbrirConfig func(), fnAbrirLogin func()) (fyne.CanvasObject, func()) {
-        var hosts []zabbix.Host
-        var hostsSelecionados []zabbix.Host
+// TelaPrincipal representa a tela principal do aplicativo
+type TelaPrincipal struct {
+        App                *AplicacaoZabbix
+        Container          *fyne.Container
+        TabelaHosts        *widget.Table
+        CampoBusca         *widget.Entry
+        BotaoAtualizar     *widget.Button
+        BotaoExportar      *widget.Button
+        BotaoSair          *widget.Button
+        BotaoConfigurar    *widget.Button
+        LabelStatus        *widget.Label
+        BarraStatus        *fyne.Container
+        Hosts              []zabbix.Host
+        HostsFiltrados     []zabbix.Host
+}
+
+// MostrarTelaPrincipal exibe a tela principal
+func (a *AplicacaoZabbix) MostrarTelaPrincipal() {
+        tela := &TelaPrincipal{
+                App: a,
+        }
+
+        tela.CriarInterface()
+        a.Janela.SetContent(tela.Container)
+
+        // Carregar dados iniciais
+        tela.CarregarDados()
+}
+
+// CriarInterface cria a interface da tela principal
+func (t *TelaPrincipal) CriarInterface() {
+        // Criar widgets da tela
+        t.CriarWidgets()
+
+        // Barra de ferramentas
+        barraFerramentas := container.NewHBox(
+                t.CampoBusca,
+                t.BotaoAtualizar,
+                t.BotaoExportar,
+                t.BotaoConfigurar,
+                layout.NewSpacer(),
+                t.BotaoSair,
+        )
+
+        // Barra de status
+        t.BarraStatus = container.NewHBox(t.LabelStatus)
+
+        // Container principal
+        t.Container = container.NewBorder(barraFerramentas, t.BarraStatus, nil, nil, t.TabelaHosts)
+}
+
+// CriarWidgets cria os widgets da tela
+func (t *TelaPrincipal) CriarWidgets() {
+        // Campo de busca
+        t.CampoBusca = widget.NewEntry()
+        t.CampoBusca.SetPlaceHolder("Buscar hosts...")
+        t.CampoBusca.OnChanged = t.AplicarFiltro
+
+        // Botões
+        t.BotaoAtualizar = widget.NewButtonWithIcon("Atualizar", theme.ViewRefreshIcon(), t.CarregarDados)
+        t.BotaoExportar = widget.NewButtonWithIcon("Exportar CSV", theme.DocumentSaveIcon(), t.ExportarDados)
+        t.BotaoConfigurar = widget.NewButtonWithIcon("Configurar", theme.SettingsIcon(), t.AbrirConfiguracoes)
+        t.BotaoSair = widget.NewButtonWithIcon("Sair", theme.LogoutIcon(), t.Sair)
+
+        // Label de status
+        t.LabelStatus = widget.NewLabel("Pronto")
 
         // Tabela de hosts
-        tabelaHosts := widget.NewTable(
+        t.TabelaHosts = widget.NewTable(
                 func() (int, int) {
-                        return len(hosts) + 1, 3 // Cabeçalho + linhas, 3 colunas
+                        return len(t.HostsFiltrados) + 1, 5 // +1 para o cabeçalho
                 },
                 func() fyne.CanvasObject {
-                        return widget.NewLabel("Carregando...")
+                        return widget.NewLabel("Texto longo para prever o tamanho")
                 },
-                func(id widget.TableCellID, obj fyne.CanvasObject) {
-                        label := obj.(*widget.Label)
+                func(i widget.TableCellID, o fyne.CanvasObject) {
+                        label := o.(*widget.Label)
+                        label.TextStyle = fyne.TextStyle{Bold: i.Row == 0}
                         label.Alignment = fyne.TextAlignLeading
 
-                        // Cabeçalho
-                        if id.Row == 0 {
-                                label.TextStyle = fyne.TextStyle{Bold: true}
-                                switch id.Col {
+                        if i.Row == 0 {
+                                // Cabeçalho
+                                switch i.Col {
                                 case 0:
-                                        label.SetText("ID")
+                                        label.SetText("ID do Host")
                                 case 1:
                                         label.SetText("Nome do Host")
                                 case 2:
                                         label.SetText("Status")
+                                case 3:
+                                        label.SetText("Itens")
+                                case 4:
+                                        label.SetText("Triggers")
                                 }
-                                return
-                        }
-
-                        // Dados
-                        if id.Row-1 < len(hosts) {
-                                host := hosts[id.Row-1]
-                                switch id.Col {
+                        } else if i.Row-1 < len(t.HostsFiltrados) {
+                                // Dados
+                                host := t.HostsFiltrados[i.Row-1]
+                                switch i.Col {
                                 case 0:
                                         label.SetText(host.ID)
                                 case 1:
@@ -62,294 +121,120 @@ func criarTelaPrincipal(janela fyne.Window, cliente *zabbix.ClienteAPI, fnAbrirC
                                                 status = "Desconhecido"
                                         }
                                         label.SetText(status)
-                                        
-                                        // Cor de acordo com o status
-                                        if host.Status == "0" {
-                                                label.TextStyle = fyne.TextStyle{Bold: true}
-                                        } else {
-                                                label.TextStyle = fyne.TextStyle{Italic: true}
-                                        }
+                                case 3:
+                                        label.SetText(strconv.Itoa(len(host.Items)))
+                                case 4:
+                                        label.SetText(strconv.Itoa(len(host.Triggers)))
                                 }
                         }
                 },
         )
 
-        // Ajustar tamanho das colunas
-        tabelaHosts.SetColumnWidth(0, 80)
-        tabelaHosts.SetColumnWidth(1, 220)
-        tabelaHosts.SetColumnWidth(2, 100)
-
-        // Campo de busca
-        campoBusca := widget.NewEntry()
-        campoBusca.SetPlaceHolder("Buscar hosts...")
-        
-        botaoBuscar := widget.NewButtonWithIcon("Buscar", theme.SearchIcon(), func() {
-                atualizarListaHosts(cliente, campoBusca.Text, func(h []zabbix.Host, err error) {
-                        if err != nil {
-                                dialog.ShowError(err, janela)
-                                return
-                        }
-                        hosts = h
-                        tabelaHosts.Refresh()
-                })
-        })
-
-        // Detalhes do host
-        labelHostSelecionado := widget.NewLabel("Selecione um host para ver os detalhes")
-        labelHostSelecionado.Wrapping = fyne.TextWrapWord
-
-        // Tabs para items e triggers
-        listaItems := widget.NewList(
-                func() int {
-                        if len(hostsSelecionados) == 0 {
-                                return 0
-                        }
-                        return len(hostsSelecionados[0].Items)
-                },
-                func() fyne.CanvasObject {
-                        return container.NewHBox(
-                                widget.NewIcon(theme.DocumentIcon()),
-                                widget.NewLabel("Item"),
-                        )
-                },
-                func(id widget.ListItemID, obj fyne.CanvasObject) {
-                        if len(hostsSelecionados) == 0 || id >= len(hostsSelecionados[0].Items) {
-                                return
-                        }
-                        
-                        container := obj.(*fyne.Container)
-                        label := container.Objects[1].(*widget.Label)
-                        
-                        item := hostsSelecionados[0].Items[id]
-                        texto := fmt.Sprintf("%s: %s", item.ID, item.Nome)
-                        label.SetText(texto)
-                },
-        )
-
-        listaTriggers := widget.NewList(
-                func() int {
-                        if len(hostsSelecionados) == 0 {
-                                return 0
-                        }
-                        return len(hostsSelecionados[0].Triggers)
-                },
-                func() fyne.CanvasObject {
-                        return container.NewHBox(
-                                widget.NewIcon(theme.WarningIcon()),
-                                widget.NewLabel("Trigger"),
-                        )
-                },
-                func(id widget.ListItemID, obj fyne.CanvasObject) {
-                        if len(hostsSelecionados) == 0 || id >= len(hostsSelecionados[0].Triggers) {
-                                return
-                        }
-                        
-                        container := obj.(*fyne.Container)
-                        label := container.Objects[1].(*widget.Label)
-                        
-                        trigger := hostsSelecionados[0].Triggers[id]
-                        texto := fmt.Sprintf("%s: %s", trigger.ID, trigger.Nome)
-                        label.SetText(texto)
-                },
-        )
-
-        tabs := container.NewAppTabs(
-                container.NewTabItem("Items", listaItems),
-                container.NewTabItem("Triggers", listaTriggers),
-        )
-
-        painelDetalhes := container.NewVBox(
-                labelHostSelecionado,
-                widget.NewSeparator(),
-                tabs,
-        )
-
-        // Evento ao selecionar um host na tabela
-        tabelaHosts.OnSelected = func(id widget.TableCellID) {
-                if id.Row == 0 || id.Row-1 >= len(hosts) {
-                        return
-                }
-
-                host := hosts[id.Row-1]
-                hostsSelecionados = []zabbix.Host{host}
-                labelHostSelecionado.SetText(fmt.Sprintf("Host: %s (ID: %s)\nStatus: %s", 
-                        host.Nome, 
-                        host.ID, 
-                        zabbix.StatusHost[host.Status]))
-                
-                listaItems.Refresh()
-                listaTriggers.Refresh()
-        }
-
-        // Botão para exportar relatório
-        botaoExportar := widget.NewButtonWithIcon("Exportar Relatório", theme.DocumentSaveIcon(), func() {
-                if len(hosts) == 0 {
-                        dialog.ShowInformation("Informação", "Não há dados para exportar.", janela)
-                        return
-                }
-
-                // Diálogo para salvar arquivo
-                dialogoSalvar := dialog.NewFileSave(
-                        func(escritor fyne.URIWriteCloser, err error) {
-                                if err != nil {
-                                        dialog.ShowError(err, janela)
-                                        return
-                                }
-                                if escritor == nil {
-                                        return // Usuário cancelou
-                                }
-                                defer escritor.Close()
-
-                                // Obter o caminho do arquivo
-                                caminho := escritor.URI().Path()
-                                
-                                // Garantir que tenha a extensão .csv
-                                if !strings.HasSuffix(strings.ToLower(caminho), ".csv") {
-                                        caminho += ".csv"
-                                }
-                                
-                                // Gerar o relatório
-                                err = zabbix.GerarRelatorioCSV(hosts, caminho)
-                                if err != nil {
-                                        dialog.ShowError(fmt.Errorf("Erro ao gerar relatório: %v", err), janela)
-                                        return
-                                }
-
-                                dialog.ShowInformation("Sucesso", "Relatório gerado com sucesso!", janela)
-                        },
-                        janela,
-                )
-                
-                // Sugerir um nome de arquivo padrão
-                dataAtual := time.Now().Format("2006-01-02")
-                dialogoSalvar.SetFileName(fmt.Sprintf("Relatorio_Zabbix_%s.csv", dataAtual))
-                dialogoSalvar.SetFilter(storage.NewExtensionFileFilter([]string{".csv"}))
-                dialogoSalvar.Show()
-        })
-
-        // Botão de atualizar dados
-        botaoAtualizar := widget.NewButtonWithIcon("Atualizar", theme.ViewRefreshIcon(), func() {
-                atualizarListaHosts(cliente, campoBusca.Text, func(h []zabbix.Host, err error) {
-                        if err != nil {
-                                dialog.ShowError(err, janela)
-                                return
-                        }
-                        hosts = h
-                        tabelaHosts.Refresh()
-                        
-                        // Limpar seleção
-                        hostsSelecionados = []zabbix.Host{}
-                        labelHostSelecionado.SetText("Selecione um host para ver os detalhes")
-                        listaItems.Refresh()
-                        listaTriggers.Refresh()
-                })
-        })
-
-        // Botão de configurações
-        botaoConfig := widget.NewButtonWithIcon("Configurações", theme.SettingsIcon(), fnAbrirConfig)
-        
-        // Botão para alterar conta/perfil
-        botaoAlterarConta := widget.NewButtonWithIcon("Alterar Conta", theme.AccountIcon(), fnAbrirLogin)
-
-        // Barra de status
-        barraStatus := widget.NewLabel("Pronto")
-
-        // Layout da tela principal
-        split := container.NewHSplit(
-                container.NewBorder(
-                        container.NewVBox(
-                                container.NewHBox(
-                                        widget.NewLabel("Filtro:"),
-                                        campoBusca,
-                                        botaoBuscar,
-                                ),
-                        ),
-                        nil, nil, nil,
-                        tabelaHosts,
-                ),
-                painelDetalhes,
-        )
-        split.SetOffset(0.6)
-
-        conteudo := container.NewBorder(
-                nil,
-                container.NewBorder(
-                        nil, nil, nil, nil,
-                        container.NewHBox(
-                                barraStatus,
-                                layout.NewSpacer(),
-                                botaoAtualizar,
-                                botaoExportar,
-                                botaoAlterarConta,
-                                botaoConfig,
-                        ),
-                ),
-                nil, nil,
-                split,
-        )
-
-        // Função para atualizar os dados
-        fnAtualizar := func() {
-                barraStatus.SetText("Carregando hosts...")
-                atualizarListaHosts(cliente, "", func(h []zabbix.Host, err error) {
-                        if err != nil {
-                                barraStatus.SetText(fmt.Sprintf("Erro: %v", err))
-                                dialog.ShowError(err, janela)
-                                return
-                        }
-                        hosts = h
-                        tabelaHosts.Refresh()
-                        barraStatus.SetText(fmt.Sprintf("Carregados %d hosts", len(hosts)))
-                })
-        }
-
-        // Configurar menu da aplicação
-        janela.SetMainMenu(fyne.NewMainMenu(
-                fyne.NewMenu("Arquivo",
-                        fyne.NewMenuItem("Atualizar", func() {
-                                botaoAtualizar.OnTapped()
-                        }),
-                        fyne.NewMenuItem("Exportar Relatório", func() {
-                                botaoExportar.OnTapped()
-                        }),
-                        fyne.NewMenuItemSeparator(),
-                        fyne.NewMenuItem("Sair", func() {
-                                janela.Close()
-                        }),
-                ),
-                fyne.NewMenu("Conta",
-                        fyne.NewMenuItem("Alterar Conta/Perfil", func() {
-                                fnAbrirLogin()
-                        }),
-                        fyne.NewMenuItem("Configurações", func() {
-                                fnAbrirConfig()
-                        }),
-                ),
-                fyne.NewMenu("Ajuda",
-                        fyne.NewMenuItem("Sobre", func() {
-                                dialog.ShowInformation("Sobre", "Zabbix Manager\nVersão 1.0\n\nUma aplicação para gerenciamento do Zabbix.", janela)
-                        }),
-                ),
-        ))
-
-        return conteudo, fnAtualizar
+        // Configurar tamanho das colunas
+        t.TabelaHosts.SetColumnWidth(0, 100)
+        t.TabelaHosts.SetColumnWidth(1, 300)
+        t.TabelaHosts.SetColumnWidth(2, 100)
+        t.TabelaHosts.SetColumnWidth(3, 80)
+        t.TabelaHosts.SetColumnWidth(4, 80)
 }
 
-// atualizarListaHosts atualiza a lista de hosts
-func atualizarListaHosts(cliente *zabbix.ClienteAPI, filtro string, callback func([]zabbix.Host, error)) {
-        go func() {
-                var hosts []zabbix.Host
-                var err error
+// CarregarDados carrega os dados dos hosts
+func (t *TelaPrincipal) CarregarDados() {
+        // Verificar se há cliente configurado
+        if t.App.Cliente == nil {
+                t.App.MostrarErro("Erro", "Nenhum servidor Zabbix configurado")
+                t.App.MostrarTelaLogin()
+                return
+        }
 
-                if filtro == "" {
-                        hosts, err = cliente.ObterHosts()
-                } else {
-                        hosts, err = cliente.ObterHostsFiltrados(filtro)
+        // Atualizar label de status
+        t.LabelStatus.SetText("Carregando dados...")
+        t.LabelStatus.Refresh()
+
+        // Obter os hosts
+        var erro error
+        t.Hosts, erro = t.App.Cliente.ObterHosts()
+        if erro != nil {
+                t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao obter dados dos hosts: %v", erro))
+                t.LabelStatus.SetText("Erro ao carregar dados")
+                t.LabelStatus.Refresh()
+                return
+        }
+
+        // Aplicar filtro
+        t.AplicarFiltro(t.CampoBusca.Text)
+
+        // Atualizar status
+        t.LabelStatus.SetText(fmt.Sprintf("Dados carregados. Total de hosts: %d", len(t.Hosts)))
+        t.LabelStatus.Refresh()
+}
+
+// AplicarFiltro aplica o filtro de busca aos hosts
+func (t *TelaPrincipal) AplicarFiltro(termo string) {
+        // Se o termo estiver vazio, mostrar todos os hosts
+        if termo == "" {
+                t.HostsFiltrados = t.Hosts
+                t.TabelaHosts.Refresh()
+                return
+        }
+
+        // Filtrar hosts pelo nome
+        t.HostsFiltrados = []zabbix.Host{}
+        for _, host := range t.Hosts {
+                if ContémTexto(host.Nome, termo) || ContémTexto(host.ID, termo) {
+                        t.HostsFiltrados = append(t.HostsFiltrados, host)
                 }
+        }
 
-                // Chamada de retorno na thread principal da UI
-                fyne.CurrentApp().Driver().RunOnMain(func() {
-                        callback(hosts, err)
-                })
-        }()
+        // Atualizar a tabela
+        t.TabelaHosts.Refresh()
+
+        // Atualizar status
+        t.LabelStatus.SetText(fmt.Sprintf("Mostrando %d de %d hosts", len(t.HostsFiltrados), len(t.Hosts)))
+        t.LabelStatus.Refresh()
+}
+
+// ExportarDados exporta os dados para CSV
+func (t *TelaPrincipal) ExportarDados() {
+        // Verificar se há hosts carregados
+        if len(t.Hosts) == 0 {
+                t.App.MostrarErro("Erro", "Não há dados para exportar")
+                return
+        }
+
+        // Exportar relatório
+        erro := t.App.ExportarRelatorio()
+        if erro != nil {
+                t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao exportar relatório: %v", erro))
+                return
+        }
+
+        // Mostrar mensagem de sucesso
+        diretorioHome, _ := t.App.ObterDiretorioHome()
+        caminho := fmt.Sprintf("%s/Relatórios Zabbix", diretorioHome)
+        t.App.MostrarInfo("Relatório Exportado", fmt.Sprintf("Relatório exportado com sucesso para o diretório:\n%s", caminho))
+}
+
+// AbrirConfiguracoes abre a tela de configurações
+func (t *TelaPrincipal) AbrirConfiguracoes() {
+        t.App.MostrarTelaConfig()
+}
+
+// Sair volta para a tela de login
+func (t *TelaPrincipal) Sair() {
+        t.App.MostrarTelaLogin()
+}
+
+// ContémTexto verifica se um texto contém outro (case insensitive)
+func ContémTexto(texto, busca string) bool {
+        if len(busca) == 0 {
+                return true
+        }
+        if len(texto) == 0 {
+                return false
+        }
+        return strings.Contains(
+                strings.ToLower(texto),
+                strings.ToLower(busca),
+        )
 }

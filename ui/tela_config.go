@@ -1,181 +1,129 @@
 package ui
 
 import (
-        "fmt"
-        "path/filepath"
-        "strconv"
+	"fmt"
+	"strconv"
 
-        "fyne.io/fyne/v2"
-        "fyne.io/fyne/v2/container"
-        "fyne.io/fyne/v2/dialog"
-        "fyne.io/fyne/v2/layout"
-        "fyne.io/fyne/v2/widget"
-
-        "zabbix-manager/config"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/validation"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/widget"
+	"zabbix-manager/config"
 )
 
-// criarTelaConfig cria a tela de configurações
-func criarTelaConfig(janela fyne.Window, config *config.Configuração, perfilAtual config.Perfil, 
-        fnSalvarConfig func(int, string, config.Perfil)) fyne.CanvasObject {
-        
-        // Perfil a ser editado (cópia do atual)
-        perfilEditado := perfilAtual
-        
-        // Seção de configurações gerais
-        entradaTempoLimite := widget.NewEntry()
-        entradaTempoLimite.Text = formatarNumero(config.TempoLimite)
-        entradaTempoLimite.SetPlaceHolder("Tempo limite (segundos)")
-
-        // Diretório padrão para arquivos CSV
-        entradaDiretorioCSV := widget.NewEntry()
-        entradaDiretorioCSV.Text = config.DiretórioCSV
-        entradaDiretorioCSV.SetPlaceHolder("Diretório para arquivos CSV")
-        
-        botaoSelecionarDiretorio := widget.NewButton("Selecionar...", func() {
-                // Abrir diálogo de selecionar diretório
-                dialogoDiretorio := dialog.NewFolderOpen(
-                        func(uri fyne.ListableURI, err error) {
-                                if err != nil {
-                                        dialog.ShowError(err, janela)
-                                        return
-                                }
-                                if uri == nil {
-                                        return // Usuário cancelou
-                                }
-                                
-                                // Obter o caminho do diretório
-                                caminho := uri.Path()
-                                entradaDiretorioCSV.SetText(caminho)
-                        },
-                        janela,
-                )
-                dialogoDiretorio.Show()
-        })
-
-        // Seção de configurações do perfil ativo
-        entradaURL := widget.NewEntry()
-        entradaURL.Text = perfilAtual.URL
-        entradaURL.SetPlaceHolder("URL da API do Zabbix")
-        
-        entradaNome := widget.NewLabel(perfilAtual.Nome)
-        
-        infoToken := widget.NewLabel("Não há token configurado")
-        if perfilAtual.Token != "" {
-                infoToken.SetText("Token configurado")
-        }
-        
-        infoSalvar := widget.NewLabel("Não salvar credenciais")
-        if perfilAtual.Salvar {
-                infoSalvar.SetText("Salvar credenciais")
-        }
-        
-        // Botão para limpar o token
-        botaoLimparToken := widget.NewButton("Limpar Token", func() {
-                dialog.ShowConfirm(
-                        "Limpar Token",
-                        "Tem certeza que deseja limpar o token? Será necessário fazer login novamente.",
-                        func(confirma bool) {
-                                if confirma {
-                                        perfilEditado.Token = ""
-                                        infoToken.SetText("Não há token configurado")
-                                }
-                        },
-                        janela,
-                )
-        })
-        
-        // Botão para limpar credenciais salvas
-        botaoLimparCredenciais := widget.NewButton("Limpar Credenciais", func() {
-                dialog.ShowConfirm(
-                        "Limpar Credenciais",
-                        "Tem certeza que deseja limpar as credenciais salvas?",
-                        func(confirma bool) {
-                                if confirma {
-                                        perfilEditado.Usuário = ""
-                                        perfilEditado.Senha = ""
-                                        perfilEditado.Salvar = false
-                                        infoSalvar.SetText("Não salvar credenciais")
-                                }
-                        },
-                        janela,
-                )
-        })
-        
-        // Atualizar as informações ao editar a URL
-        entradaURL.OnChanged = func(texto string) {
-                perfilEditado.URL = texto
-        }
-
-        // Botões de ação
-        botaoSalvar := widget.NewButton("Salvar", func() {
-                // Validar o tempo limite
-                tempoLimite, err := parseNumero(entradaTempoLimite.Text)
-                if err != nil || tempoLimite <= 0 {
-                        dialog.ShowError(fyne.NewError(1, "Tempo limite inválido. Use um número maior que zero."), janela)
-                        return
-                }
-                
-                // Validar a URL
-                if entradaURL.Text == "" {
-                        dialog.ShowError(fyne.NewError(1, "A URL da API é obrigatória"), janela)
-                        return
-                }
-                
-                // Atualizar o perfil com a URL
-                perfilEditado.URL = entradaURL.Text
-                
-                // Salvar as configurações
-                fnSalvarConfig(tempoLimite, entradaDiretorioCSV.Text, perfilEditado)
-                
-                // Fechar a janela
-                dialog.ShowInformation("Sucesso", "Configurações salvas com sucesso!", janela)
-                janela.Close()
-        })
-
-        botaoCancelar := widget.NewButton("Cancelar", func() {
-                janela.Close()
-        })
-
-        // Formulário de configurações gerais
-        formularioGeral := widget.NewForm(
-                widget.NewFormItem("Tempo Limite (segundos)", entradaTempoLimite),
-                widget.NewFormItem("Diretório CSV", container.NewBorder(nil, nil, nil, botaoSelecionarDiretorio, entradaDiretorioCSV)),
-        )
-        
-        // Formulário de configurações do perfil
-        formularioPerfil := widget.NewForm(
-                widget.NewFormItem("Nome do Perfil", entradaNome),
-                widget.NewFormItem("URL da API", entradaURL),
-                widget.NewFormItem("Token", container.NewHBox(infoToken, layout.NewSpacer(), botaoLimparToken)),
-                widget.NewFormItem("Credenciais", container.NewHBox(infoSalvar, layout.NewSpacer(), botaoLimparCredenciais)),
-        )
-
-        // Layout
-        conteudo := container.NewVBox(
-                widget.NewLabelWithStyle("Configurações", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-                widget.NewSeparator(),
-                widget.NewLabelWithStyle("Configurações Gerais", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-                formularioGeral,
-                widget.NewSeparator(),
-                widget.NewLabelWithStyle(fmt.Sprintf("Configurações do Perfil: %s", perfilAtual.Nome), 
-                        fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-                formularioPerfil,
-                container.NewHBox(
-                        layout.NewSpacer(),
-                        botaoCancelar,
-                        botaoSalvar,
-                ),
-        )
-
-        return container.NewPadded(conteudo)
+// TelaConfig representa a tela de configurações do aplicativo
+type TelaConfig struct {
+	App           *AplicacaoZabbix
+	Container     *fyne.Container
+	CampoTimeout  *widget.Entry
+	BotaoSalvar   *widget.Button
+	BotaoVoltar   *widget.Button
+	ConfigOriginal *config.Configuração
 }
 
-// formatarNumero formata um número como string
-func formatarNumero(numero int) string {
-        return strconv.Itoa(numero)
+// MostrarTelaConfig exibe a tela de configurações
+func (a *AplicacaoZabbix) MostrarTelaConfig() {
+	// Fazer uma cópia da configuração atual
+	configOriginal := *a.Config
+
+	tela := &TelaConfig{
+		App:            a,
+		ConfigOriginal: &configOriginal,
+	}
+
+	tela.CriarInterface()
+	a.Janela.SetContent(tela.Container)
 }
 
-// parseNumero converte uma string para número
-func parseNumero(texto string) (int, error) {
-        return strconv.Atoi(texto)
+// CriarInterface cria a interface da tela de configurações
+func (t *TelaConfig) CriarInterface() {
+	// Criar widgets
+	t.CriarWidgets()
+
+	// Container principal
+	t.Container = container.NewVBox(
+		widget.NewLabelWithStyle("Configurações", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewSeparator(),
+		container.NewVBox(
+			widget.NewLabel("Tempo limite de requisição (segundos):"),
+			t.CampoTimeout,
+		),
+		widget.NewSeparator(),
+		container.NewHBox(
+			layout.NewSpacer(),
+			t.BotaoVoltar,
+			t.BotaoSalvar,
+		),
+	)
+}
+
+// CriarWidgets cria os widgets da tela
+func (t *TelaConfig) CriarWidgets() {
+	// Campo de tempo limite
+	t.CampoTimeout = widget.NewEntry()
+	t.CampoTimeout.Text = strconv.Itoa(t.App.Config.TempoLimite)
+	// Validar que é um número inteiro positivo
+	t.CampoTimeout.Validator = validation.NewRegexp(`^[1-9]\d*$`, "Deve ser um número inteiro positivo")
+
+	// Botões
+	t.BotaoSalvar = widget.NewButton("Salvar", t.Salvar)
+	t.BotaoVoltar = widget.NewButton("Voltar", t.Voltar)
+}
+
+// Salvar salva as configurações
+func (t *TelaConfig) Salvar() {
+	// Validar campos
+	if err := t.CampoTimeout.Validate(); err != nil {
+		t.App.MostrarErro("Erro de Validação", "Tempo limite inválido. Deve ser um número inteiro positivo.")
+		return
+	}
+
+	// Converter tempo limite para inteiro
+	timeout, err := strconv.Atoi(t.CampoTimeout.Text)
+	if err != nil {
+		t.App.MostrarErro("Erro", "Tempo limite inválido")
+		return
+	}
+
+	// Atualizar configurações
+	t.App.Config.TempoLimite = timeout
+
+	// Salvar configurações
+	err = t.App.SalvarConfiguracao()
+	if err != nil {
+		t.App.MostrarErro("Erro", fmt.Sprintf("Erro ao salvar configurações: %v", err))
+		return
+	}
+
+	// Atualizar cliente API se existir um perfil ativo
+	if t.App.PerfilAtual != nil {
+		t.App.ConfigurarClienteAPI(t.App.PerfilAtual)
+	}
+
+	// Mostrar mensagem de sucesso
+	t.App.MostrarInfo("Sucesso", "Configurações salvas com sucesso")
+
+	// Voltar para a tela anterior
+	t.Voltar()
+}
+
+// Voltar volta para a tela anterior
+func (t *TelaConfig) Voltar() {
+	// Restaurar a configuração original se não foi salva
+	if t.App.Config.TempoLimite != t.ConfigOriginal.TempoLimite {
+		pergunta := "Deseja descartar as alterações?"
+		t.App.MostrarConfirmacao("Alterações não salvas", pergunta, func(confirmar bool) {
+			if confirmar {
+				// Restaurar configuração original
+				*t.App.Config = *t.ConfigOriginal
+
+				// Voltar para a tela principal
+				t.App.MostrarTelaPrincipal()
+			}
+		})
+	} else {
+		// Se não houve alterações, voltar direto
+		t.App.MostrarTelaPrincipal()
+	}
 }
