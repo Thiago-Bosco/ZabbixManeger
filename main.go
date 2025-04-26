@@ -195,12 +195,10 @@ func manipuladorAdicionarPerfil(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clean up URL and ensure it doesn't end with api_jsonrpc.php
-	cleanURL := strings.TrimSuffix(strings.TrimSuffix(url, "/"), "api_jsonrpc.php")
 	configAPI := zabbix.ConfigAPI{
-		URL:         cleanURL,
+		URL:         url,
 		Token:       token,
-		TempoLimite: 30 * time.Second, // Set explicit timeout
+		TempoLimite: cfg.TempoLimite,
 	}
 	clienteTemporario := zabbix.NovoClienteAPI(configAPI)
 	if err := clienteTemporario.TestarConexao(); err != nil {
@@ -431,17 +429,13 @@ func manipuladorBuscarHosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	termoLower := strings.ToLower(termo)
 	var hostsFiltrados []zabbix.Host
-	if termo != "" {
-		termoLower := strings.ToLower(termo)
-		for _, host := range hosts {
-			nomeLower := strings.ToLower(host.Nome)
-			if strings.Contains(nomeLower, termoLower) {
-				hostsFiltrados = append(hostsFiltrados, host)
-			}
+	for _, host := range hosts {
+		if strings.Contains(strings.ToLower(host.Nome), termoLower) ||
+			strings.Contains(strings.ToLower(host.ID), termoLower) {
+			hostsFiltrados = append(hostsFiltrados, host)
 		}
-	} else {
-		hostsFiltrados = hosts
 	}
 
 	pagina := PaginaPrincipal{
