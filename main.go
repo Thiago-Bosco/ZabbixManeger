@@ -139,18 +139,12 @@ func inicializarClienteAPI() {
 }
 
 // Handler Functions
-func manipuladorHome(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
+func initializeHandlers() *handlers.Handler {
+	return &handlers.Handler{
+		Config:     cfg,
+		ClienteAPI: clienteAPI,
+		RenderTemplate: renderizarTemplate,
 	}
-
-	if clienteAPI == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
-		return
-	}
-
-	http.Redirect(w, r, "/hosts", http.StatusFound)
 }
 
 func manipuladorLogin(w http.ResponseWriter, r *http.Request) {
