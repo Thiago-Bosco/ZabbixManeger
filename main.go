@@ -528,17 +528,6 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Carregar template explicitamente
-	tmpl, err := template.New("analise").Funcs(funcMap).ParseFiles(
-		"templates/layout.html",
-		"templates/analise.html",
-	)
-	if err != nil {
-		log.Printf("Erro ao carregar template analise: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-		return
-	}
-
 	ano := time.Now().Year()
 	mes := int(time.Now().Month())
 	tipoFiltro := r.URL.Query().Get("tipo_filtro")
@@ -547,6 +536,7 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var analises []zabbix.AnaliseProblema
+	var err error
 
 	if tipoFiltro == "mensal" {
 		if anoStr := r.URL.Query().Get("ano"); anoStr != "" {
@@ -561,37 +551,7 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		log.Printf("Analisando problemas para %d/%d", mes, ano)
-		analisesMensais, err := clienteAPI.AnalisarProblemasMensais(ano, mes)
-		if err != nil {
-			log.Printf("Erro ao obter análises mensais: %v", err)
-			return
-		}
-		
-		// Converter AnaliseMensal para AnaliseProblema
-		analises = make([]zabbix.AnaliseProblema, len(analisesMensais))
-		for i, am := range analisesMensais {
-			ap := zabbix.AnaliseProblema{
-				HostID:              am.HostID,
-				HostNome:            am.HostNome,
-				TotalProblemas:      am.TotalProblemas,
-				LimitesExcedidos:    am.LimitesExcedidos,
-				ProblemasPorTrigger: am.ProblemasPorTrigger,
-				PicoTrigger: struct {
-					Nome      string
-					DataPico  time.Time
-					Contagem  int
-					Gravidade string
-				}{
-					Nome:      am.PicoTrigger.Nome,
-					DataPico:  am.PicoTrigger.DataPico,
-					Contagem:  am.PicoTrigger.Contagem,
-					Gravidade: am.PicoTrigger.Gravidade,
-				},
-			}
-			analises[i] = ap
-			log.Printf("Análise convertida para host %s: %d problemas, %d limites excedidos", 
-				ap.HostNome, ap.TotalProblemas, ap.LimitesExcedidos)
-		}
+		analises, err = clienteAPI.AnalisarProblemasMensais(ano, mes)
 	} else {
 		dataInicial := r.URL.Query().Get("data_inicial")
 		dataFinal := r.URL.Query().Get("data_final")
@@ -621,14 +581,8 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		"Anos":          []int{ano - 1, ano, ano + 1},
 		"Meses":         []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		"NomesMeses":    []string{"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"},
-		"TipoFiltro":    tipoFiltro,
-		"DataInicial":   r.URL.Query().Get("data_inicial"),
-		"DataFinal":     r.URL.Query().Get("data_final"),
+		"TipoFiltro":    "mensal",
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "layout", dados); err != nil {
-		log.Printf("Erro ao renderizar template analise: %v", err)
-		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
-		return
-	}
+	renderizarTemplate(w, "analise", dados)
 }
