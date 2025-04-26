@@ -255,37 +255,4 @@ func formatarTrafego(bytes float64) string {
 
 
 //Necessary structs moved to tipos.go
-type Host struct {
-	ID          string
-	Nome        string
-	Status      string
-	Items       []Item
-	Triggers    []Trigger
-	Interfaces []Interface
-}
-
-type Item struct {
-	ID             string
-	Nome           string
-	Status         string
-	UltimoValor    string
-	UltimaAlteracao string
-	Estado         string
-}
-
-type Trigger struct {
-	ID             string
-	Nome           string
-	Status         string
-	Valor          string
-	UltimaAlteracao string
-}
-
-type Interface struct {
-	IP  string
-	DNS string
-}
-
-type Problema struct {
-	// ... fields ...
-}
+// Estruturas movidas para tipos.go

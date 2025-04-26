@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// Item representa um item de monitoramento do Zabbix
 type Item struct {
 	ID              string `json:"itemid"`
 	Nome            string `json:"name"`
@@ -16,7 +15,6 @@ type Item struct {
 	UltimaAlteracao string `json:"lastchange"`
 }
 
-// Trigger representa uma trigger (alarme) do Zabbix
 type Trigger struct {
 	ID              string `json:"triggerid"`
 	Nome            string `json:"description"`
@@ -26,7 +24,6 @@ type Trigger struct {
 	UltimaAlteracao string `json:"lastchange"`
 }
 
-// Host representa um host do Zabbix com seus itens e triggers
 type Host struct {
 	ID         string      `json:"hostid"`
 	Nome       string      `json:"host"`
@@ -36,7 +33,6 @@ type Host struct {
 	Interfaces []Interface `json:"interfaces"`
 }
 
-// Interface representa uma interface de rede do host
 type Interface struct {
 	ID    string `json:"interfaceid"`
 	Tipo  string `json:"type"`
@@ -45,21 +41,19 @@ type Interface struct {
 	Porta string `json:"port"`
 }
 
-// Problema representa um problema/evento do Zabbix
 type Problema struct {
-	ID            string    `json:"eventid"`
-	Nome          string    `json:"name"`
-	Severidade    string    `json:"severity"`
-	DataInicio    time.Time `json:"clock"`
-	DataFim       time.Time `json:"r_clock"`
-	Duracao       string    `json:"duration"`
-	HostID        string    `json:"hostid"`
-	TriggerID     string    `json:"triggerid"`
-	Valor         string    `json:"value"`
-	Hosts         []Host    `json:"hosts"`
+	ID          string    `json:"eventid"`
+	Nome        string    `json:"name"`
+	Severidade  string    `json:"severity"`
+	DataInicio  time.Time `json:"clock"`
+	DataFim     time.Time `json:"r_clock"`
+	Duracao     string    `json:"duration"`
+	HostID      string    `json:"hostid"`
+	TriggerID   string    `json:"triggerid"`
+	Valor       string    `json:"value"`
+	Hosts       []Host    `json:"hosts"`
 }
 
-// Evento representa um evento do Zabbix
 type Evento struct {
 	ID             string          `json:"eventid"`
 	Nome           string          `json:"name"`
@@ -73,7 +67,6 @@ type Evento struct {
 	ObjetoRelativo json.RawMessage `json:"relatedObject"`
 }
 
-// AnaliseMensal representa estatísticas mensais de problemas
 type AnaliseMensal struct {
 	HostID              string
 	HostNome            string
