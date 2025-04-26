@@ -44,15 +44,16 @@ type Interface struct {
 
 // Problema representa um problema/evento do Zabbix
 type Problema struct {
-	ID          string
-	Nome        string
-	Severidade  string
-	DataInicio  time.Time
-	DataFim     time.Time
-	Duracao     string
-	HostID      string
-	TriggerID   string
-	Valor       string
+	ID          string    `json:"eventid"`
+	Nome        string    `json:"name"`
+	Severidade  string    `json:"severity"`
+	DataInicio  time.Time `json:"clock"`
+	DataFim     time.Time `json:"r_clock"`
+	Duracao     string    `json:"duration"`
+	HostID      string    `json:"hostid"`
+	TriggerID   string    `json:"triggerid"`
+	Valor       string    `json:"value"`
+	Hosts       []Host    `json:"hosts"`
 }
 
 // AnaliseMensal representa estatísticas mensais de problemas
