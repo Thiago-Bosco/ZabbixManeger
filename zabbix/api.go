@@ -2,7 +2,6 @@ package zabbix
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -44,13 +43,9 @@ func NovoClienteAPI(config ConfigAPI) *ClienteAPI {
 		config.TempoLimite = 30 * time.Second
 	}
 
-	// Criar cliente HTTP com timeout configurado e ignorando verificação SSL
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
+	// Criar cliente HTTP com timeout configurado
 	client := &http.Client{
-		Timeout:    config.TempoLimite,
-		Transport:  tr,
+		Timeout: config.TempoLimite,
 	}
 
 	return &ClienteAPI{
