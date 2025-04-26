@@ -22,48 +22,8 @@ type DadosRelatorio struct {
 	Host              Host
 	ProblemasRecentes []Problema
 	Disponibilidade   float64
-	UltimaColeta     time.Time
+	UltimaColeta      time.Time
 }
-
-// Host struct
-type Host struct {
-	ID          string
-	Nome        string
-	Status      string
-	Items       []Item
-	Triggers    []Trigger
-	Interfaces []Interface
-}
-
-// Item struct
-type Item struct {
-	ID             string
-	Nome           string
-	Status         string
-	UltimoValor    string
-	UltimaAlteracao string
-	Estado         string
-}
-
-// Trigger struct
-type Trigger struct {
-	ID             string
-	Nome           string
-	Status         string
-	Valor          string
-	UltimaAlteracao string
-}
-
-type Interface struct {
-	IP  string
-	DNS string
-}
-
-// Problema struct (assuming this exists, adjust as needed)
-type Problema struct {
-	// ... fields ...
-}
-
 
 // GerarRelatorioCSV gera um relatório CSV com informações detalhadas dos hosts
 func GerarRelatorioCSV(hosts []Host, caminhoArquivo string) error {
@@ -291,4 +251,41 @@ func obterTrafegoDados(host Host, direcao string) float64 {
 func formatarTrafego(bytes float64) string {
 	// Implementar formatação de tráfego (B, KB, MB, GB)
 	return "1.02 MB/s" // Placeholder -  Needs implementation for proper formatting.
+}
+
+
+//Necessary structs moved to tipos.go
+type Host struct {
+	ID          string
+	Nome        string
+	Status      string
+	Items       []Item
+	Triggers    []Trigger
+	Interfaces []Interface
+}
+
+type Item struct {
+	ID             string
+	Nome           string
+	Status         string
+	UltimoValor    string
+	UltimaAlteracao string
+	Estado         string
+}
+
+type Trigger struct {
+	ID             string
+	Nome           string
+	Status         string
+	Valor          string
+	UltimaAlteracao string
+}
+
+type Interface struct {
+	IP  string
+	DNS string
+}
+
+type Problema struct {
+	// ... fields ...
 }

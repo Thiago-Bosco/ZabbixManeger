@@ -1,16 +1,19 @@
+
 package zabbix
 
 import (
+	"encoding/json"
 	"time"
 )
 
 // Item representa um item de monitoramento do Zabbix
 type Item struct {
-	ID          string `json:"itemid"`
-	Nome        string `json:"name"`
-	Status      string `json:"status"`
-	Estado      string `json:"state"`
-	UltimoValor string `json:"lastvalue"`
+	ID              string `json:"itemid"`
+	Nome            string `json:"name"`
+	Status          string `json:"status"`
+	Estado          string `json:"state"`
+	UltimoValor     string `json:"lastvalue"`
+	UltimaAlteracao string `json:"lastchange"`
 }
 
 // Trigger representa uma trigger (alarme) do Zabbix
@@ -44,30 +47,30 @@ type Interface struct {
 
 // Problema representa um problema/evento do Zabbix
 type Problema struct {
-	ID          string    `json:"eventid"`
-	Nome        string    `json:"name"`
-	Severidade  string    `json:"severity"`
-	DataInicio  time.Time `json:"clock"`
-	DataFim     time.Time `json:"r_clock"`
-	Duracao     string    `json:"duration"`
-	HostID      string    `json:"hostid"`
-	TriggerID   string    `json:"triggerid"`
-	Valor       string    `json:"value"`
-	Hosts       []Host    `json:"hosts"`
+	ID            string    `json:"eventid"`
+	Nome          string    `json:"name"`
+	Severidade    string    `json:"severity"`
+	DataInicio    time.Time `json:"clock"`
+	DataFim       time.Time `json:"r_clock"`
+	Duracao       string    `json:"duration"`
+	HostID        string    `json:"hostid"`
+	TriggerID     string    `json:"triggerid"`
+	Valor         string    `json:"value"`
+	Hosts         []Host    `json:"hosts"`
 }
 
 // Evento representa um evento do Zabbix
 type Evento struct {
-    ID              string    `json:"eventid"`
-    Nome            string    `json:"name"`
-    Clock           string    `json:"clock"`
-    Valor           string    `json:"value"`
-    Severidade      string    `json:"severity"`
-    Reconhecido     string    `json:"acknowledged"`
-    HostID          string    `json:"hostid"`
-    ObjetoID        string    `json:"objectid"`
-    TipoObjeto      string    `json:"object"`
-    ObjetoRelativo  json.RawMessage `json:"relatedObject"`
+	ID             string          `json:"eventid"`
+	Nome           string          `json:"name"`
+	Clock          string          `json:"clock"`
+	Valor          string          `json:"value"`
+	Severidade     string          `json:"severity"`
+	Reconhecido    string          `json:"acknowledged"`
+	HostID         string          `json:"hostid"`
+	ObjetoID       string          `json:"objectid"`
+	TipoObjeto     string          `json:"object"`
+	ObjetoRelativo json.RawMessage `json:"relatedObject"`
 }
 
 // AnaliseMensal representa estatísticas mensais de problemas
