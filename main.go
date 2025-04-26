@@ -547,7 +547,6 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var analises []zabbix.AnaliseProblema
-	var err error
 
 	if tipoFiltro == "mensal" {
 		if anoStr := r.URL.Query().Get("ano"); anoStr != "" {
