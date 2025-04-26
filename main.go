@@ -528,6 +528,17 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Carregar template explicitamente
+	tmpl, err := template.New("analise").Funcs(funcMap).ParseFiles(
+		"templates/layout.html",
+		"templates/analise.html",
+	)
+	if err != nil {
+		log.Printf("Erro ao carregar template analise: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
+
 	ano := time.Now().Year()
 	mes := int(time.Now().Month())
 	tipoFiltro := r.URL.Query().Get("tipo_filtro")
@@ -616,5 +627,9 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		"DataFinal":     r.URL.Query().Get("data_final"),
 	}
 
-	renderizarTemplate(w, "analise", dados)
+	if err := tmpl.ExecuteTemplate(w, "layout", dados); err != nil {
+		log.Printf("Erro ao renderizar template analise: %v", err)
+		http.Error(w, "Erro interno do servidor", http.StatusInternalServerError)
+		return
+	}
 }
