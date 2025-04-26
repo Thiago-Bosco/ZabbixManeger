@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"zabbix-manager/config"
+	"zabbix-manager/handlers"
+	"zabbix-manager/router"
 	"zabbix-manager/zabbix"
 )
 
@@ -487,22 +489,15 @@ func main() {
 	// Initialize API if active profile exists
 	inicializarClienteAPI()
 
-	// Configure routes
-	http.HandleFunc("/", manipuladorHome)
-	http.HandleFunc("/login", manipuladorLogin)
-	http.HandleFunc("/config", manipuladorConfig)
-	http.HandleFunc("/perfil/adicionar", manipuladorAdicionarPerfil)
-	http.HandleFunc("/perfil/editar", manipuladorEditarPerfil)
-	http.HandleFunc("/perfil/remover", manipuladorRemoverPerfil)
-	http.HandleFunc("/perfil/selecionar", manipuladorSelecionarPerfil)
-	http.HandleFunc("/hosts", manipuladorHosts)
-	http.HandleFunc("/hosts/buscar", manipuladorBuscarHosts)
-	http.HandleFunc("/exportar", manipuladorExportarCSV)
-	http.HandleFunc("/analise", manipuladorAnalise)
+	// Initialize handlers
+	h := &handlers.Handler{
+		Config:         cfg,
+		ClienteAPI:     clienteAPI,
+		RenderTemplate: renderizarTemplate,
+	}
 
-	// Serve static files
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	// Configure routes
+	router.ConfigureRoutes(h)
 
 	// Start server
 	porta := "5000"
