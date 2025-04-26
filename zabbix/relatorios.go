@@ -24,15 +24,7 @@ type DadosRelatorio struct {
 	UltimaColeta     time.Time
 }
 
-// Problema representa um problema/evento do Zabbix
-type Problema struct {
-	ID          string
-	Nome        string
-	Severidade  string
-	DataInicio  time.Time
-	DataFim     time.Time
-	Duracao     string
-}
+
 
 // GerarRelatorioCSV gera um relatório CSV com informações detalhadas dos hosts
 func GerarRelatorioCSV(hosts []Host, caminhoArquivo string) error {
