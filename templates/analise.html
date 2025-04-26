@@ -6,26 +6,78 @@
     </div>
     <div class="card-body">
         <form class="mb-4" method="GET">
-            <div class="row">
-                <div class="col-md-4">
-                    <select name="mes" class="form-select">
-                        {{ range $i := .Meses }}
-                        <option value="{{ $i }}" {{ if eq $i $.MesSelecionado }}selected{{ end }}>{{ index $.NomesMeses (subtract $i 1) }}</option>
-                        {{ end }}
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de Filtro</label>
+                    <select name="tipo_filtro" class="form-select" id="tipoFiltro">
+                        <option value="mensal" {{ if eq .TipoFiltro "mensal" }}selected{{ end }}>Mensal</option>
+                        <option value="periodo" {{ if eq .TipoFiltro "periodo" }}selected{{ end }}>Período Específico</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <select name="ano" class="form-select">
-                        {{ range $i := .Anos }}
-                        <option value="{{ $i }}" {{ if eq $i $.AnoSelecionado }}selected{{ end }}>{{ $i }}</option>
-                        {{ end }}
-                    </select>
+                
+                <div class="col-md-9" id="filtroMensal" {{ if ne .TipoFiltro "mensal" }}style="display:none"{{ end }}>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Mês</label>
+                            <select name="mes" class="form-select">
+                                {{ range $i := .Meses }}
+                                <option value="{{ $i }}" {{ if eq $i $.MesSelecionado }}selected{{ end }}>{{ index $.NomesMeses (subtract $i 1) }}</option>
+                                {{ end }}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ano</label>
+                            <select name="ano" class="form-select">
+                                {{ range $i := .Anos }}
+                                <option value="{{ $i }}" {{ if eq $i $.AnoSelecionado }}selected{{ end }}>{{ $i }}</option>
+                                {{ end }}
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary">Analisar</button>
+                
+                <div class="col-md-9" id="filtroPeriodo" {{ if ne .TipoFiltro "periodo" }}style="display:none"{{ end }}>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Data Inicial</label>
+                            <input type="date" name="data_inicial" class="form-control" value="{{ .DataInicial }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Data Final</label>
+                            <input type="date" name="data_final" class="form-control" value="{{ .DataFinal }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Analisar
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="limparFiltros()">
+                        <i class="bi bi-x-circle"></i> Limpar Filtros
+                    </button>
                 </div>
             </div>
         </form>
+
+        <script>
+            document.getElementById('tipoFiltro').addEventListener('change', function() {
+                const filtroMensal = document.getElementById('filtroMensal');
+                const filtroPeriodo = document.getElementById('filtroPeriodo');
+                
+                if (this.value === 'mensal') {
+                    filtroMensal.style.display = 'block';
+                    filtroPeriodo.style.display = 'none';
+                } else {
+                    filtroMensal.style.display = 'none';
+                    filtroPeriodo.style.display = 'block';
+                }
+            });
+
+            function limparFiltros() {
+                window.location.href = window.location.pathname;
+            }
+        </script>
 
         <div class="table-responsive">
             <table class="table table-hover">
@@ -38,6 +90,8 @@
                         <th>Data do Pico</th>
                         <th>Quantidade</th>
                         <th>Gravidade</th>
+                        <th>Duração Média</th>
+                        <th>Tempo Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -47,13 +101,15 @@
                         <td>{{ .TotalProblemas }}</td>
                         <td>{{ .LimitesExcedidos }}</td>
                         <td>{{ .PicoTrigger.Nome }}</td>
-                        <td>{{ .PicoTrigger.DataPico.Format "02/01/2006" }}</td>
+                        <td>{{ .PicoTrigger.DataPico.Format "02/01/2006 15:04" }}</td>
                         <td>{{ .PicoTrigger.Contagem }}</td>
                         <td>
-                            <span class="badge {{ if eq .PicoTrigger.Gravidade "5" }}bg-danger{{ else if eq .PicoTrigger.Gravidade "4" }}bg-warning{{ else }}bg-info{{ end }}">
+                            <span class="badge {{ if eq .PicoTrigger.Gravidade "5" }}bg-danger{{ else if eq .PicoTrigger.Gravidade "4" }}bg-warning{{ else if eq .PicoTrigger.Gravidade "3" }}bg-info{{ else }}bg-secondary{{ end }}">
                                 {{ .PicoTrigger.Gravidade }}
                             </span>
                         </td>
+                        <td>{{ .DuracaoMedia }}</td>
+                        <td>{{ .TempoTotal }}</td>
                     </tr>
                     {{ end }}
                 </tbody>
