@@ -1,0 +1,19 @@
+Package: zabbix-manager
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.17)
+Maintainer: Zabbix Manager <suporte@zabbixmanager.com>
+Description: Aplicação para gerenciamento e monitoramento de infraestrutura Zabbix
+ Zabbix Manager é uma aplicação desktop desenvolvida em Go para
+ conectar à API do Zabbix, visualizar hosts, itens e triggers,
+ e gerar relatórios em CSV.
+ .
+ Principais características:
+  * Interface desktop nativa
+  * Gerenciamento de múltiplos servidores Zabbix
+  * Visualização de hosts e seus itens de monitoramento
+  * Busca e filtragem de hosts
+  * Exportação de relatórios em formato CSV
+  * Suporte a autenticação via token da API Zabbix
