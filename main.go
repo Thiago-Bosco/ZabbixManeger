@@ -530,61 +530,27 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 
 	ano := time.Now().Year()
 	mes := int(time.Now().Month())
-	tipoFiltro := r.URL.Query().Get("tipo_filtro")
-	if tipoFiltro == "" {
-		tipoFiltro = "mensal"
+
+	// Pegar parâmetros da query
+	if anoStr := r.URL.Query().Get("ano"); anoStr != "" {
+		if anoInt, err := strconv.Atoi(anoStr); err == nil {
+			ano = anoInt
+		}
 	}
-
-	var analisesMensais []zabbix.AnaliseMensal
-	var analises []zabbix.AnaliseProblema
-	var err error
-
-	if tipoFiltro == "mensal" {
-		if anoStr := r.URL.Query().Get("ano"); anoStr != "" {
-			if anoInt, err := strconv.Atoi(anoStr); err == nil {
-				ano = anoInt
-			}
-		}
-		if mesStr := r.URL.Query().Get("mes"); mesStr != "" {
-			if mesInt, err := strconv.Atoi(mesStr); err == nil {
-				mes = mesInt
-			}
-		}
-
-		log.Printf("Analisando problemas para %d/%d", mes, ano)
-		analisesMensais, err = clienteAPI.AnalisarProblemasMensais(ano, mes)
-		if err == nil {
-			// Convert AnaliseMensal to AnaliseProblema
-			for _, am := range analisesMensais {
-				ap := zabbix.AnaliseProblema{
-					HostNome:         am.HostNome,
-					TotalProblemas:   am.TotalProblemas,
-					LimitesExcedidos: am.LimitesExcedidos,
-					PicoTrigger:      am.PicoTrigger,
-				}
-				analises = append(analises, ap)
-			}
-		}
-	} else {
-		dataInicial := r.URL.Query().Get("data_inicial")
-		dataFinal := r.URL.Query().Get("data_final")
-
-		if dataInicial != "" && dataFinal != "" {
-			log.Printf("Analisando problemas entre %s e %s", dataInicial, dataFinal)
-			// Implemente a análise por período específico aqui
+	if mesStr := r.URL.Query().Get("mes"); mesStr != "" {
+		if mesInt, err := strconv.Atoi(mesStr); err == nil {
+			mes = mesInt
 		}
 	}
 
+	analises, err := clienteAPI.AnalisarProblemasMensais(ano, mes)
 	if err != nil {
 		log.Printf("Erro ao analisar problemas: %v", err)
 		renderizarTemplate(w, "analise", map[string]interface{}{
 			"Erro": fmt.Sprintf("Erro ao analisar problemas: %v", err),
-			"TipoFiltro": tipoFiltro,
 		})
 		return
 	}
-
-	log.Printf("Encontrados %d registros de análise", len(analises))
 
 	// Preparar dados para o template
 	dados := map[string]interface{}{
