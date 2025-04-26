@@ -79,8 +79,14 @@
             }
         </script>
 
+        {{ if .Analises }}
         <div class="table-responsive">
             <table class="table table-hover">
+        {{ else }}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Nenhum dado encontrado para o período selecionado.
+        </div>
+        {{ end }}
                 <thead>
                     <tr>
                         <th>Host</th>

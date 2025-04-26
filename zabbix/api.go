@@ -140,6 +140,8 @@ func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal
 	inicio := time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC)
 	fim := inicio.AddDate(0, 1, 0).Add(-time.Second)
 	
+	log.Printf("Analisando problemas de %s até %s", inicio.Format("02/01/2006"), fim.Format("02/01/2006"))
+	
 	problemas, err := c.ObterProblemasPeriodo(inicio, fim)
 	if err != nil {
 		return nil, err

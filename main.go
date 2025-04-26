@@ -147,6 +147,15 @@ func inicializarClienteAPI() {
         // Verificar se há perfil configurado e ativo
         perfilAtivo, err := cfg.PerfilAtivo()
         if err != nil {
+
+		log.Printf("Carregando análise para %d/%d", ano, mes)
+		analises, err := clienteAPI.AnalisarProblemasMensais(ano, mes)
+		if err != nil {
+			log.Printf("Erro ao analisar problemas: %v", err)
+		} else {
+			log.Printf("Encontrados %d registros de análise", len(analises))
+		}
+
                 log.Printf("Aviso: %v", err)
                 clienteAPI = nil
                 return
