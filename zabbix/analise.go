@@ -1,17 +1,19 @@
+
 package zabbix
 
 import "time"
 
 type AnaliseProblema struct {
-	HostNome        string
-	TotalProblemas  int
+	HostID           string
+	HostNome         string
+	TotalProblemas   int
 	LimitesExcedidos int
-	PicoTrigger     struct {
+	PicoTrigger      struct {
 		Nome      string
 		DataPico  time.Time
 		Contagem  int
 		Gravidade string
 	}
-	DuracaoMedia string
-	TempoTotal   string
+	ProblemasPorTrigger map[string]int
+	TempoIndisponivel   time.Duration
 }

@@ -551,7 +551,37 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		log.Printf("Analisando problemas para %d/%d", mes, ano)
-		analises, err = clienteAPI.AnalisarProblemasMensais(ano, mes)
+		analisesMensais, err := clienteAPI.AnalisarProblemasMensais(ano, mes)
+		if err != nil {
+			log.Printf("Erro ao obter análises mensais: %v", err)
+			return
+		}
+		
+		// Converter AnaliseMensal para AnaliseProblema
+		analises = make([]zabbix.AnaliseProblema, len(analisesMensais))
+		for i, am := range analisesMensais {
+			ap := zabbix.AnaliseProblema{
+				HostID:              am.HostID,
+				HostNome:            am.HostNome,
+				TotalProblemas:      am.TotalProblemas,
+				LimitesExcedidos:    am.LimitesExcedidos,
+				ProblemasPorTrigger: am.ProblemasPorTrigger,
+				PicoTrigger: struct {
+					Nome      string
+					DataPico  time.Time
+					Contagem  int
+					Gravidade string
+				}{
+					Nome:      am.PicoTrigger.Nome,
+					DataPico:  am.PicoTrigger.DataPico,
+					Contagem:  am.PicoTrigger.Contagem,
+					Gravidade: am.PicoTrigger.Gravidade,
+				},
+			}
+			analises[i] = ap
+			log.Printf("Análise convertida para host %s: %d problemas, %d limites excedidos", 
+				ap.HostNome, ap.TotalProblemas, ap.LimitesExcedidos)
+		}
 	} else {
 		dataInicial := r.URL.Query().Get("data_inicial")
 		dataFinal := r.URL.Query().Get("data_final")
