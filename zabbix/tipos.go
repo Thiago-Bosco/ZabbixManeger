@@ -56,6 +56,20 @@ type Problema struct {
 	Hosts       []Host    `json:"hosts"`
 }
 
+// Evento representa um evento do Zabbix
+type Evento struct {
+    ID              string    `json:"eventid"`
+    Nome            string    `json:"name"`
+    Clock           string    `json:"clock"`
+    Valor           string    `json:"value"`
+    Severidade      string    `json:"severity"`
+    Reconhecido     string    `json:"acknowledged"`
+    HostID          string    `json:"hostid"`
+    ObjetoID        string    `json:"objectid"`
+    TipoObjeto      string    `json:"object"`
+    ObjetoRelativo  json.RawMessage `json:"relatedObject"`
+}
+
 // AnaliseMensal representa estatísticas mensais de problemas
 type AnaliseMensal struct {
 	HostID              string

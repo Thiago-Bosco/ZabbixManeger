@@ -79,6 +79,35 @@ func (c *ClienteAPI) TestarConexao() error {
 }
 
 // ObterHosts retorna a lista de hosts do Zabbix com seus itens e triggers
+// ObterHistoricoEventos obtém o histórico detalhado de eventos
+func (c *ClienteAPI) ObterHistoricoEventos(hostID string, inicio, fim time.Time) ([]Evento, error) {
+    pedido := map[string]interface{}{
+        "jsonrpc": "2.0",
+        "method": "event.get",
+        "params": map[string]interface{}{
+            "output": "extend",
+            "hostids": hostID,
+            "time_from": inicio.Unix(),
+            "time_till": fim.Unix(),
+            "sortfield": "clock",
+            "sortorder": "DESC",
+            "selectRelatedObject": "extend",
+        },
+        "auth": c.config.Token,
+        "id": 1,
+    }
+
+    var resposta RespostaAPI
+    err := c.realizarRequisicao(pedido, &resposta)
+    if err != nil {
+        return nil, err
+    }
+
+    var eventos []Evento
+    err = json.Unmarshal(resposta.Result, &eventos)
+    return eventos, err
+}
+
 // ObterProblemasPeriodo obtém problemas de um período específico
 func (c *ClienteAPI) ObterProblemasPeriodo(inicio, fim time.Time) ([]Problema, error) {
 	pedido := map[string]interface{}{
