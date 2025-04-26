@@ -39,6 +39,7 @@ var (
 	arquivoConfig  string
 	clienteAPI     *zabbix.ClienteAPI
 	templatesCache map[string]*template.Template
+	funcMap        template.FuncMap
 )
 
 func init() {
@@ -46,14 +47,14 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	// Initialize template cache
-	// Funções customizadas para templates
-	funcMap := template.FuncMap{
+	templatesCache = make(map[string]*template.Template)
+
+	// Custom template functions
+	funcMap = template.FuncMap{
 		"subtract": func(a, b int) int {
 			return a - b
 		},
 	}
-	
-	templatesCache = make(map[string]*template.Template)
 
 	// Load templates
 	templates := []string{"login", "principal", "config", "analise"}
