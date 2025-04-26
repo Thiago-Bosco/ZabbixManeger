@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -21,8 +22,6 @@ type ClienteAPI struct {
 	config ConfigAPI
 	client *http.Client
 }
-
-
 
 // RespostaAPI encapsula a resposta da API do Zabbix
 type RespostaAPI struct {
@@ -81,31 +80,31 @@ func (c *ClienteAPI) TestarConexao() error {
 // ObterHosts retorna a lista de hosts do Zabbix com seus itens e triggers
 // ObterHistoricoEventos obtém o histórico detalhado de eventos
 func (c *ClienteAPI) ObterHistoricoEventos(hostID string, inicio, fim time.Time) ([]Evento, error) {
-    pedido := map[string]interface{}{
-        "jsonrpc": "2.0",
-        "method": "event.get",
-        "params": map[string]interface{}{
-            "output": "extend",
-            "hostids": hostID,
-            "time_from": inicio.Unix(),
-            "time_till": fim.Unix(),
-            "sortfield": "clock",
-            "sortorder": "DESC",
-            "selectRelatedObject": "extend",
-        },
-        "auth": c.config.Token,
-        "id": 1,
-    }
+	pedido := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "event.get",
+		"params": map[string]interface{}{
+			"output":              "extend",
+			"hostids":             hostID,
+			"time_from":           inicio.Unix(),
+			"time_till":           fim.Unix(),
+			"sortfield":           "clock",
+			"sortorder":           "DESC",
+			"selectRelatedObject": "extend",
+		},
+		"auth": c.config.Token,
+		"id":   1,
+	}
 
-    var resposta RespostaAPI
-    err := c.realizarRequisicao(pedido, &resposta)
-    if err != nil {
-        return nil, err
-    }
+	var resposta RespostaAPI
+	err := c.realizarRequisicao(pedido, &resposta)
+	if err != nil {
+		return nil, err
+	}
 
-    var eventos []Evento
-    err = json.Unmarshal(resposta.Result, &eventos)
-    return eventos, err
+	var eventos []Evento
+	err = json.Unmarshal(resposta.Result, &eventos)
+	return eventos, err
 }
 
 // ObterProblemasPeriodo obtém problemas de um período específico
@@ -139,9 +138,9 @@ func (c *ClienteAPI) ObterProblemasPeriodo(inicio, fim time.Time) ([]Problema, e
 func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal, error) {
 	inicio := time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC)
 	fim := inicio.AddDate(0, 1, 0).Add(-time.Second)
-	
+
 	log.Printf("Analisando problemas de %s até %s", inicio.Format("02/01/2006"), fim.Format("02/01/2006"))
-	
+
 	problemas, err := c.ObterProblemasPeriodo(inicio, fim)
 	if err != nil {
 		return nil, err
@@ -154,25 +153,25 @@ func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal
 		// Inicializar estruturas
 		if _, existe := analises[p.HostID]; !existe {
 			analises[p.HostID] = &AnaliseMensal{
-				HostID: p.HostID,
-				HostNome: p.Hosts[0].Nome,
+				HostID:              p.HostID,
+				HostNome:            p.Hosts[0].Nome,
 				ProblemasPorTrigger: make(map[string]int),
 			}
 			problemasporDia[p.HostID] = make(map[string]map[time.Time]int)
 		}
-		
+
 		// Análise por dia
 		if _, existe := problemasporDia[p.HostID][p.TriggerID]; !existe {
 			problemasporDia[p.HostID][p.TriggerID] = make(map[time.Time]int)
 		}
-		
+
 		dia := time.Date(p.DataInicio.Year(), p.DataInicio.Month(), p.DataInicio.Day(), 0, 0, 0, 0, time.UTC)
 		problemasporDia[p.HostID][p.TriggerID][dia]++
-		
+
 		analise := analises[p.HostID]
 		analise.TotalProblemas++
 		analise.ProblemasPorTrigger[p.TriggerID]++
-		
+
 		// Verificar se é um novo pico
 		contagem := problemasporDia[p.HostID][p.TriggerID][dia]
 		if contagem > analise.PicoTrigger.Contagem {
@@ -181,7 +180,7 @@ func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal
 			analise.PicoTrigger.Contagem = contagem
 			analise.PicoTrigger.Gravidade = p.Severidade
 		}
-		
+
 		if p.Valor == "1" { // Problema ativo
 			analise.LimitesExcedidos++
 		}
@@ -191,7 +190,7 @@ func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal
 	for _, a := range analises {
 		resultado = append(resultado, *a)
 	}
-	
+
 	return resultado, nil
 }
 
