@@ -1,4 +1,3 @@
-
 package zabbix
 
 import (
@@ -7,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,44 @@ type DadosRelatorio struct {
 	UltimaColeta     time.Time
 }
 
+// Host struct
+type Host struct {
+	ID          string
+	Nome        string
+	Status      string
+	Items       []Item
+	Triggers    []Trigger
+	Interfaces []Interface
+}
+
+// Item struct
+type Item struct {
+	ID             string
+	Nome           string
+	Status         string
+	UltimoValor    string
+	UltimaAlteracao string
+	Estado         string
+}
+
+// Trigger struct
+type Trigger struct {
+	ID             string
+	Nome           string
+	Status         string
+	Valor          string
+	UltimaAlteracao string
+}
+
+type Interface struct {
+	IP  string
+	DNS string
+}
+
+// Problema struct (assuming this exists, adjust as needed)
+type Problema struct {
+	// ... fields ...
+}
 
 
 // GerarRelatorioCSV gera um relatório CSV com informações detalhadas dos hosts
@@ -54,7 +93,7 @@ func gerarCSV(hosts []Host, writer io.Writer) error {
 
 	// Cabeçalhos expandidos
 	cabecalhos := []string{
-		"Host ID", "Nome", "Status", 
+		"Host ID", "Nome", "Status",
 		"Disponibilidade (%)", "Última Coleta",
 		"Total Items", "Items Ativos", "Items com Problema",
 		"Total Triggers", "Triggers Ativas", "Triggers com Problema",
@@ -110,12 +149,33 @@ func gerarCSV(hosts []Host, writer io.Writer) error {
 
 // Funções auxiliares
 func calcularDisponibilidade(host Host) float64 {
-	// Implementar cálculo baseado no histórico de problemas
-	return 99.99 // Placeholder
+	problemasRecentes := 0
+	for _, trigger := range host.Triggers {
+		if trigger.Valor == "1" { // problema ativo
+			problemasRecentes++
+		}
+	}
+	total := float64(len(host.Triggers))
+	if total == 0 {
+		return 100.0
+	}
+	return 100.0 * (1.0 - float64(problemasRecentes)/total)
 }
 
 func obterUltimaColeta(host Host) time.Time {
-	return time.Now() // Implementar busca real
+	ultimaColeta := time.Time{}
+	for _, item := range host.Items {
+		if item.UltimoValor != "" {
+			timestamp, err := strconv.ParseInt(item.UltimaAlteracao, 10, 64)
+			if err == nil {
+				itemColeta := time.Unix(timestamp, 0)
+				if itemColeta.After(ultimaColeta) {
+					ultimaColeta = itemColeta
+				}
+			}
+		}
+	}
+	return ultimaColeta
 }
 
 func contarItemsAtivos(items []Item) int {
@@ -159,36 +219,76 @@ func contarTriggersComProblema(triggers []Trigger) int {
 }
 
 func contarProblemasRecentes(host Host) int {
-	// Implementar contagem de problemas nas últimas 24h
-	return 0 // Placeholder
+	count := 0
+	for _, trigger := range host.Triggers {
+		if trigger.Valor == "1" {
+			count++
+		}
+	}
+	return count
 }
 
 func calcularTempoMedioResolucao(host Host) string {
-	// Implementar cálculo do tempo médio de resolução
-	return "1h 30m" // Placeholder
+	var total time.Duration
+	count := 0
+	for _, trigger := range host.Triggers {
+		if trigger.UltimaAlteracao != "" {
+			timestamp, err := strconv.ParseInt(trigger.UltimaAlteracao, 10, 64)
+			if err == nil {
+				duracao := time.Since(time.Unix(timestamp, 0))
+				total += duracao
+				count++
+			}
+		}
+	}
+	if count == 0 {
+		return "N/A"
+	}
+	media := total / time.Duration(count)
+	return media.Round(time.Minute).String()
 }
 
 func obterPerformanceCPU(host Host) float64 {
-	// Implementar busca de performance CPU
-	return 45.5 // Placeholder
+	for _, item := range host.Items {
+		if strings.Contains(strings.ToLower(item.Nome), "cpu") {
+			if valor, err := strconv.ParseFloat(item.UltimoValor, 64); err == nil {
+				return valor
+			}
+		}
+	}
+	return 0
 }
 
 func obterPerformanceMemoria(host Host) float64 {
-	// Implementar busca de performance memória
-	return 67.8 // Placeholder
+	for _, item := range host.Items {
+		if strings.Contains(strings.ToLower(item.Nome), "memory") {
+			if valor, err := strconv.ParseFloat(item.UltimoValor, 64); err == nil {
+				return valor
+			}
+		}
+	}
+	return 0
 }
 
 func obterInterfacePrincipal(host Host) string {
-	// Implementar busca da interface principal
-	return "eth0" // Placeholder
+	if len(host.Interfaces) > 0 {
+		return fmt.Sprintf("%s (%s)", host.Interfaces[0].IP, host.Interfaces[0].DNS)
+	}
+	return "N/A"
 }
 
 func obterTrafegoDados(host Host, direcao string) float64 {
-	// Implementar busca de dados de tráfego
-	return 1024.5 // Placeholder
+	for _, item := range host.Items {
+		if strings.Contains(strings.ToLower(item.Nome), fmt.Sprintf("network %s", direcao)) {
+			if valor, err := strconv.ParseFloat(item.UltimoValor, 64); err == nil {
+				return valor
+			}
+		}
+	}
+	return 0
 }
 
 func formatarTrafego(bytes float64) string {
 	// Implementar formatação de tráfego (B, KB, MB, GB)
-	return "1.02 MB/s" // Placeholder
+	return "1.02 MB/s" // Placeholder -  Needs implementation for proper formatting.
 }
