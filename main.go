@@ -611,7 +611,9 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		"Anos":          []int{ano - 1, ano, ano + 1},
 		"Meses":         []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		"NomesMeses":    []string{"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"},
-		"TipoFiltro":    "mensal",
+		"TipoFiltro":    tipoFiltro,
+		"DataInicial":   r.URL.Query().Get("data_inicial"),
+		"DataFinal":     r.URL.Query().Get("data_final"),
 	}
 
 	renderizarTemplate(w, "analise", dados)
