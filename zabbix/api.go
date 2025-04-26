@@ -79,6 +79,69 @@ func (c *ClienteAPI) TestarConexao() error {
 }
 
 // ObterHosts retorna a lista de hosts do Zabbix com seus itens e triggers
+// ObterProblemasPeriodo obtém problemas de um período específico
+func (c *ClienteAPI) ObterProblemasPeriodo(inicio, fim time.Time) ([]Problema, error) {
+	pedido := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "problem.get",
+		"params": map[string]interface{}{
+			"output": "extend",
+			"time_from": inicio.Unix(),
+			"time_till": fim.Unix(),
+			"sortfield": ["eventid"],
+			"selectHosts": ["hostid", "host"],
+		},
+		"auth": c.config.Token,
+		"id":   1,
+	}
+
+	var resposta RespostaAPI
+	err := c.realizarRequisicao(pedido, &resposta)
+	if err != nil {
+		return nil, err
+	}
+
+	var problemas []Problema
+	err = json.Unmarshal(resposta.Result, &problemas)
+	return problemas, err
+}
+
+// AnalisarProblemasMensais analisa problemas de um mês específico
+func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal, error) {
+	inicio := time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC)
+	fim := inicio.AddDate(0, 1, 0).Add(-time.Second)
+	
+	problemas, err := c.ObterProblemasPeriodo(inicio, fim)
+	if err != nil {
+		return nil, err
+	}
+
+	analises := make(map[string]*AnaliseMensal)
+	for _, p := range problemas {
+		if _, existe := analises[p.HostID]; !existe {
+			analises[p.HostID] = &AnaliseMensal{
+				HostID: p.HostID,
+				ProblemasPorTrigger: make(map[string]int),
+			}
+		}
+		
+		analise := analises[p.HostID]
+		analise.TotalProblemas++
+		analise.ProblemasPorTrigger[p.TriggerID]++
+		
+		if p.Valor == "1" { // Problema ativo
+			analise.LimitesExcedidos++
+		}
+	}
+
+	resultado := make([]AnaliseMensal, 0, len(analises))
+	for _, a := range analises {
+		resultado = append(resultado, *a)
+	}
+	
+	return resultado, nil
+}
+
 func (c *ClienteAPI) ObterHosts() ([]Host, error) {
 	// Preparar requisição para obter hosts com itens e triggers
 	pedido := map[string]interface{}{

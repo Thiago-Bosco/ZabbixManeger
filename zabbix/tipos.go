@@ -1,5 +1,8 @@
-
 package zabbix
+
+import (
+	"time"
+)
 
 // Item representa um item de monitoramento do Zabbix
 type Item struct {
@@ -37,4 +40,27 @@ type Interface struct {
 	IP    string `json:"ip"`
 	DNS   string `json:"dns"`
 	Porta string `json:"port"`
+}
+
+// Problema representa um problema/evento do Zabbix
+type Problema struct {
+	ID          string
+	Nome        string
+	Severidade  string
+	DataInicio  time.Time
+	DataFim     time.Time
+	Duracao     string
+	HostID      string
+	TriggerID   string
+	Valor       string
+}
+
+// AnaliseMensal representa estatísticas mensais de problemas
+type AnaliseMensal struct {
+	HostID            string
+	HostNome          string
+	TotalProblemas    int
+	ProblemasPorTrigger map[string]int
+	TempoIndisponivel time.Duration
+	LimitesExcedidos  int
 }
