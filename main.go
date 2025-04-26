@@ -495,6 +495,7 @@ func main() {
 	http.HandleFunc("/hosts", manipuladorHosts)
 	http.HandleFunc("/hosts/buscar", manipuladorBuscarHosts)
 	http.HandleFunc("/exportar", manipuladorExportarCSV)
+	http.HandleFunc("/analise", manipuladorAnalise)
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
@@ -507,4 +508,12 @@ func main() {
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
+}
+func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
+	if clienteAPI == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+	
+	renderizarTemplate(w, "analise", nil)
 }
