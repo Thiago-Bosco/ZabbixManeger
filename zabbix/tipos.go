@@ -1,55 +1,54 @@
 package zabbix
 
-// Host representa um host no Zabbix
+// Host representa um host do Zabbix
 type Host struct {
-	ID       string    `json:"hostid"`
-	Nome     string    `json:"name"`
-	Status   string    `json:"status"`
-	Items    []Item    `json:"items"`
-	Triggers []Trigger `json:"triggers"`
+	ID       string
+	Nome     string
+	Status   int
+	Items    []Item
+	Triggers []Trigger
 }
 
-// Item representa um item de monitoramento no Zabbix
+// Item representa um item de monitoramento do Zabbix
 type Item struct {
-	ID     string `json:"itemid"`
-	Nome   string `json:"name"`
-	Chave  string `json:"key_"`
-	Status string `json:"status"`
+	ID     string
+	Nome   string
+	Chave  string
+	Status int
 }
 
-// Trigger representa um trigger (alerta) no Zabbix
+// Trigger representa um gatilho do Zabbix
 type Trigger struct {
-	ID         string `json:"triggerid"`
-	Descricao  string `json:"description"`
-	Status     string `json:"status"`
-	Prioridade string `json:"priority"`
+	ID         string
+	Descricao  string
+	Status     int
+	Prioridade int
 }
 
-// StatusHost mapeia os códigos de status dos hosts para textos
-var StatusHost = map[string]string{
-	"0": "Ativo",
-	"1": "Inativo",
+// StatusHost define os possíveis status de um host
+var StatusHost = map[int]string{
+	0: "Ativo",
+	1: "Desativado",
 }
 
-// StatusItem mapeia os códigos de status dos itens para textos
-var StatusItem = map[string]string{
-	"0": "Ativo",
-	"1": "Inativo",
-	"2": "Não suportado",
+// StatusItem define os possíveis status de um item
+var StatusItem = map[int]string{
+	0: "Ativo",
+	1: "Desativado",
 }
 
-// StatusTrigger mapeia os códigos de status dos triggers para textos
-var StatusTrigger = map[string]string{
-	"0": "Ativo",
-	"1": "Inativo",
+// StatusTrigger define os possíveis status de um trigger
+var StatusTrigger = map[int]string{
+	0: "Ativo",
+	1: "Desativado",
 }
 
-// PrioridadeTrigger mapeia os códigos de prioridade dos triggers para textos
-var PrioridadeTrigger = map[string]string{
-	"0": "Não classificada",
-	"1": "Informação",
-	"2": "Atenção",
-	"3": "Média",
-	"4": "Alta",
-	"5": "Desastre",
+// PrioridadeTrigger define as possíveis prioridades de um trigger
+var PrioridadeTrigger = map[int]string{
+	0: "Não classificado",
+	1: "Informação",
+	2: "Aviso",
+	3: "Médio",
+	4: "Alto",
+	5: "Crítico",
 }

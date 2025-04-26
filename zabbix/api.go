@@ -3,21 +3,22 @@ package zabbix
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
-// ConfigAPI define as configurações para a API do Zabbix
+// ConfigAPI armazena a configuração da API do Zabbix
 type ConfigAPI struct {
 	URL         string
 	Token       string
-	TempoLimite int
+	TempoLimite int // em segundos
 }
 
-// ClienteAPI representa um cliente para a API do Zabbix
+// ClienteAPI representa um cliente para API do Zabbix
 type ClienteAPI struct {
 	URL         string
 	Token       string
@@ -25,195 +26,204 @@ type ClienteAPI struct {
 	TempoLimite int
 }
 
-// NovoClienteAPI cria um novo cliente para a API do Zabbix
+// NovoClienteAPI cria um novo cliente de API do Zabbix
 func NovoClienteAPI(config ConfigAPI) *ClienteAPI {
-	// Usar tempo limite padrão de 30 segundos se não for especificado
-	timeout := config.TempoLimite
-	if timeout <= 0 {
-		timeout = 30
+	// Definir tempo limite padrão se não especificado
+	tempoLimite := config.TempoLimite
+	if tempoLimite <= 0 {
+		tempoLimite = 30 // 30 segundos padrão
 	}
 
 	return &ClienteAPI{
 		URL:         config.URL,
 		Token:       config.Token,
-		Cliente:     &http.Client{Timeout: time.Duration(timeout) * time.Second},
-		TempoLimite: timeout,
+		TempoLimite: tempoLimite,
+		Cliente: &http.Client{
+			Timeout: time.Duration(tempoLimite) * time.Second,
+		},
 	}
 }
 
-// TestarConexao testa a conexão com o servidor Zabbix
+// TestarConexao verifica se a conexão com a API está funcionando
 func (c *ClienteAPI) TestarConexao() error {
-	// Criar uma requisição simples para testar a conexão
+	// Definir dados da requisição
 	requisicao := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  "apiinfo.version",
-		"params":  []string{},
+		"params":  map[string]interface{}{},
 		"id":      1,
 	}
 
-	// Enviar a requisição
+	// Enviar requisição
 	resposta, err := c.enviarRequisicao(requisicao)
 	if err != nil {
-		return fmt.Errorf("erro ao testar conexão: %w", err)
+		return err
 	}
 
 	// Verificar se há erro na resposta
-	if resposta["error"] != nil {
-		erro := resposta["error"].(map[string]interface{})
-		return fmt.Errorf("erro da API: %s", erro["data"])
+	if erro, ok := resposta["error"].(map[string]interface{}); ok {
+		return fmt.Errorf("erro API: %v", erro["data"])
+	}
+
+	// Verificar se há resultado
+	if _, ok := resposta["result"]; !ok {
+		return errors.New("resposta sem resultado")
 	}
 
 	return nil
 }
 
-// ObterHosts retorna todos os hosts do servidor Zabbix
+// ObterHosts recupera a lista de hosts do Zabbix
 func (c *ClienteAPI) ObterHosts() ([]Host, error) {
-	log.Println("Obtendo hosts do servidor Zabbix...")
-
-	// Montar a requisição para obter os hosts
+	// Definir dados da requisição
 	requisicao := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  "host.get",
 		"params": map[string]interface{}{
-			"output":    "extend",
-			"selectItems": []string{"itemid", "name", "key_", "status"},
-			"selectTriggers": []string{"triggerid", "description", "status", "priority"},
+			"output":                []string{"hostid", "host", "name", "status"},
+			"selectItems":           []string{"itemid", "name", "key_", "status"},
+			"selectTriggers":        []string{"triggerid", "description", "status", "priority"},
+			"selectInterfaces":      []string{"interfaceid", "ip", "dns", "port", "type"},
+			"selectInventory":       []string{"os", "os_full", "hardware", "serialno_a"},
+			"selectGroups":          []string{"groupid", "name"},
+			"selectParentTemplates": []string{"templateid", "name"},
 		},
 		"auth": c.Token,
-		"id":   1,
+		"id":   2,
 	}
 
-	// Enviar a requisição
+	// Enviar requisição
 	resposta, err := c.enviarRequisicao(requisicao)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao obter hosts: %w", err)
+		return nil, err
 	}
 
 	// Verificar se há erro na resposta
-	if resposta["error"] != nil {
-		erro := resposta["error"].(map[string]interface{})
-		return nil, fmt.Errorf("erro da API: %s", erro["data"])
+	if erro, ok := resposta["error"].(map[string]interface{}); ok {
+		return nil, fmt.Errorf("erro API: %v", erro["data"])
 	}
 
-	// Processar a resposta
-	hostsRaw, ok := resposta["result"].([]interface{})
+	// Verificar se há resultado
+	resultado, ok := resposta["result"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("formato de resposta inválido")
+		return nil, errors.New("resposta sem resultado válido")
 	}
 
-	// Converter para o tipo Host
+	// Converter resultado para lista de hosts
 	hosts := []Host{}
-	for _, hostRaw := range hostsRaw {
-		hostMap := hostRaw.(map[string]interface{})
+	for _, item := range resultado {
+		hostData := item.(map[string]interface{})
+		
+		// Construir objeto Host
+		host := Host{
+			ID:     hostData["hostid"].(string),
+			Nome:   hostData["name"].(string),
+			Status: 0,
+		}
+		
+		// Converter status
+		if statusStr, ok := hostData["status"].(string); ok {
+			if status, err := parseInt(statusStr); err == nil {
+				host.Status = status
+			}
+		}
 		
 		// Processar itens
-		var items []Item
-		itemsRaw, ok := hostMap["items"].([]interface{})
-		if ok {
-			for _, itemRaw := range itemsRaw {
-				itemMap := itemRaw.(map[string]interface{})
-				status := "0" // Padrão: ativo
-				if statusRaw, ok := itemMap["status"].(string); ok {
-					status = statusRaw
-				}
-
-				item := Item{
-					ID:     itemMap["itemid"].(string),
-					Nome:   itemMap["name"].(string),
-					Chave:  itemMap["key_"].(string),
-					Status: status,
-				}
-				items = append(items, item)
+		if itemsData, ok := hostData["items"].([]interface{}); ok {
+			for _, itemData := range itemsData {
+				item := Item{}
+				itemMap := itemData.(map[string]interface{})
+				
+				item.ID = getString(itemMap, "itemid")
+				item.Nome = getString(itemMap, "name")
+				item.Chave = getString(itemMap, "key_")
+				item.Status = parseInt(getString(itemMap, "status"))
+				
+				host.Items = append(host.Items, item)
 			}
 		}
-
+		
 		// Processar triggers
-		var triggers []Trigger
-		triggersRaw, ok := hostMap["triggers"].([]interface{})
-		if ok {
-			for _, triggerRaw := range triggersRaw {
-				triggerMap := triggerRaw.(map[string]interface{})
+		if triggersData, ok := hostData["triggers"].([]interface{}); ok {
+			for _, triggerData := range triggersData {
+				trigger := Trigger{}
+				triggerMap := triggerData.(map[string]interface{})
 				
-				status := "0" // Padrão: ativo
-				if statusRaw, ok := triggerMap["status"].(string); ok {
-					status = statusRaw
-				}
+				trigger.ID = getString(triggerMap, "triggerid")
+				trigger.Descricao = getString(triggerMap, "description")
+				trigger.Status = parseInt(getString(triggerMap, "status"))
+				trigger.Prioridade = parseInt(getString(triggerMap, "priority"))
 				
-				prioridade := "0" // Padrão: não classificada
-				if prioridadeRaw, ok := triggerMap["priority"].(string); ok {
-					prioridade = prioridadeRaw
-				}
-
-				trigger := Trigger{
-					ID:          triggerMap["triggerid"].(string),
-					Descricao:   triggerMap["description"].(string),
-					Status:      status,
-					Prioridade:  prioridade,
-				}
-				triggers = append(triggers, trigger)
+				host.Triggers = append(host.Triggers, trigger)
 			}
 		}
-
-		status := "0" // Padrão: ativo
-		if statusRaw, ok := hostMap["status"].(string); ok {
-			status = statusRaw
-		}
-
-		host := Host{
-			ID:       hostMap["hostid"].(string),
-			Nome:     hostMap["name"].(string),
-			Status:   status,
-			Items:    items,
-			Triggers: triggers,
-		}
+		
 		hosts = append(hosts, host)
 	}
 
-	log.Printf("Obtidos %d hosts do servidor Zabbix", len(hosts))
 	return hosts, nil
 }
 
 // enviarRequisicao envia uma requisição para a API do Zabbix
 func (c *ClienteAPI) enviarRequisicao(dados map[string]interface{}) (map[string]interface{}, error) {
-	// Converter a requisição para JSON
+	// Converter dados para JSON
 	jsonData, err := json.Marshal(dados)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao serializar requisição: %w", err)
+		return nil, fmt.Errorf("erro ao converter para JSON: %v", err)
 	}
 
-	// Criar a requisição HTTP
+	// Criar requisição HTTP
 	req, err := http.NewRequest("POST", c.URL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+		return nil, fmt.Errorf("erro ao criar requisição: %v", err)
 	}
 
-	// Configurar headers
+	// Definir cabeçalhos
 	req.Header.Set("Content-Type", "application/json")
 
-	// Enviar a requisição
+	// Enviar requisição
 	resp, err := c.Cliente.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao enviar requisição: %w", err)
+		return nil, fmt.Errorf("erro ao enviar requisição: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Ler a resposta
+	// Ler corpo da resposta
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler resposta: %w", err)
+		return nil, fmt.Errorf("erro ao ler resposta: %v", err)
 	}
 
-	// Verificar código de status
+	// Verificar código de status HTTP
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status inválido: %d - %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("código de status HTTP inesperado: %d - %s", resp.StatusCode, string(body))
 	}
 
-	// Converter a resposta de JSON para map
+	// Converter resposta para mapa
 	var resultado map[string]interface{}
 	err = json.Unmarshal(body, &resultado)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao desserializar resposta: %w", err)
+		return nil, fmt.Errorf("erro ao converter resposta: %v", err)
 	}
 
 	return resultado, nil
+}
+
+// Funções auxiliares para conversão de tipos
+func getString(m map[string]interface{}, key string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func parseInt(s string) int {
+	var i int
+	_, err := fmt.Sscanf(s, "%d", &i)
+	if err != nil {
+		return 0
+	}
+	return i
 }

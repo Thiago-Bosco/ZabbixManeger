@@ -2,154 +2,160 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
-// ConfiguracaoPerfil representa um perfil de configuração para um servidor Zabbix
-type ConfiguracaoPerfil struct {
-	Nome  string `json:"nome"`
-	URL   string `json:"url"`
-	Token string `json:"token"`
+// Configuração armazena as configurações da aplicação
+type Configuração struct {
+	TempoLimite int // em segundos
+	PerfilAtual int
+	Perfis      []ConfiguracaoPerfil
 }
 
-// Configuração representa a configuração do aplicativo
-type Configuração struct {
-	Perfis      []ConfiguracaoPerfil `json:"perfis"`
-	PerfilAtual int                  `json:"perfil_atual"`
-	TempoLimite int                  `json:"tempo_limite"`
+// ConfiguracaoPerfil armazena a configuração de um servidor Zabbix
+type ConfiguracaoPerfil struct {
+	Nome  string
+	URL   string
+	Token string
 }
 
 // NovaConfiguração cria uma nova configuração com valores padrão
 func NovaConfiguração() *Configuração {
 	return &Configuração{
-		Perfis:      []ConfiguracaoPerfil{},
+		TempoLimite: 30, // 30 segundos padrão
 		PerfilAtual: -1,
-		TempoLimite: 30,
+		Perfis:      []ConfiguracaoPerfil{},
 	}
 }
 
-// AdicionarPerfil adiciona um novo perfil à configuração
+// Carregar carrega a configuração do arquivo
+func Carregar(caminho string) (*Configuração, error) {
+	// Verificar se o arquivo existe
+	if _, err := os.Stat(caminho); os.IsNotExist(err) {
+		// Criar configuração padrão
+		cfg := NovaConfiguração()
+		// Salvar configuração
+		if err := cfg.Salvar(caminho); err != nil {
+			return nil, fmt.Errorf("erro ao salvar configuração padrão: %v", err)
+		}
+		return cfg, nil
+	}
+
+	// Abrir arquivo
+	arquivo, err := os.Open(caminho)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao abrir arquivo: %v", err)
+	}
+	defer arquivo.Close()
+
+	// Decodificar JSON
+	var cfg Configuração
+	decodificador := json.NewDecoder(arquivo)
+	if err := decodificador.Decode(&cfg); err != nil {
+		return nil, fmt.Errorf("erro ao decodificar JSON: %v", err)
+	}
+
+	return &cfg, nil
+}
+
+// Salvar salva a configuração no arquivo
+func (c *Configuração) Salvar(caminho string) error {
+	// Criar diretório pai, se necessário
+	diretorioPai := filepath.Dir(caminho)
+	if err := os.MkdirAll(diretorioPai, 0755); err != nil {
+		return fmt.Errorf("erro ao criar diretório: %v", err)
+	}
+
+	// Criar arquivo
+	arquivo, err := os.Create(caminho)
+	if err != nil {
+		return fmt.Errorf("erro ao criar arquivo: %v", err)
+	}
+	defer arquivo.Close()
+
+	// Codificar JSON
+	codificador := json.NewEncoder(arquivo)
+	codificador.SetIndent("", "  ")
+	if err := codificador.Encode(c); err != nil {
+		return fmt.Errorf("erro ao codificar JSON: %v", err)
+	}
+
+	return nil
+}
+
+// AdicionarPerfil adiciona um perfil de servidor à configuração
 func (c *Configuração) AdicionarPerfil(perfil ConfiguracaoPerfil) {
 	c.Perfis = append(c.Perfis, perfil)
-	// Se for o primeiro perfil, selecionar automaticamente
+	// Se for o primeiro perfil, selecioná-lo como atual
 	if len(c.Perfis) == 1 {
 		c.PerfilAtual = 0
 	}
 }
 
-// AtualizarPerfil atualiza um perfil existente
-func (c *Configuração) AtualizarPerfil(indice int, perfil ConfiguracaoPerfil) error {
-	if indice < 0 || indice >= len(c.Perfis) {
-		return fmt.Errorf("índice de perfil inválido: %d", indice)
-	}
-
-	c.Perfis[indice] = perfil
-	return nil
-}
-
-// RemoverPerfil remove um perfil existente
+// RemoverPerfil remove um perfil de servidor da configuração
 func (c *Configuração) RemoverPerfil(indice int) error {
 	if indice < 0 || indice >= len(c.Perfis) {
-		return fmt.Errorf("índice de perfil inválido: %d", indice)
+		return errors.New("índice de perfil inválido")
 	}
 
-	// Remover o perfil do slice
+	// Remover perfil
 	c.Perfis = append(c.Perfis[:indice], c.Perfis[indice+1:]...)
 
-	// Ajustar o índice do perfil atual se necessário
+	// Atualizar perfil atual, se necessário
 	if c.PerfilAtual == indice {
-		// Se removemos o perfil atual, selecionar outro
 		if len(c.Perfis) > 0 {
 			c.PerfilAtual = 0
 		} else {
 			c.PerfilAtual = -1
 		}
 	} else if c.PerfilAtual > indice {
-		// Se removemos um perfil antes do atual, atualizar o índice
 		c.PerfilAtual--
 	}
 
 	return nil
 }
 
-// PerfilAtivo retorna o perfil atualmente selecionado
-func (c *Configuração) PerfilAtivo() (*ConfiguracaoPerfil, error) {
-	if c.PerfilAtual < 0 || c.PerfilAtual >= len(c.Perfis) {
-		return nil, fmt.Errorf("nenhum perfil selecionado")
+// AtualizarPerfil atualiza um perfil existente
+func (c *Configuração) AtualizarPerfil(indice int, perfil ConfiguracaoPerfil) error {
+	if indice < 0 || indice >= len(c.Perfis) {
+		return errors.New("índice de perfil inválido")
 	}
-	return &c.Perfis[c.PerfilAtual], nil
+
+	c.Perfis[indice] = perfil
+	return nil
 }
 
-// SelecionarPerfil seleciona um perfil pelo índice
+// SelecionarPerfil seleciona um perfil como atual
 func (c *Configuração) SelecionarPerfil(indice int) error {
 	if indice < 0 || indice >= len(c.Perfis) {
-		return fmt.Errorf("índice de perfil inválido: %d", indice)
+		return errors.New("índice de perfil inválido")
 	}
+
 	c.PerfilAtual = indice
 	return nil
 }
 
-// Carregar carrega a configuração do arquivo
-func Carregar(caminhoArquivo string) (*Configuração, error) {
-	// Verificar se o arquivo existe
-	if _, err := os.Stat(caminhoArquivo); os.IsNotExist(err) {
-		// Se não existir, criar uma nova configuração
-		config := NovaConfiguração()
-		return config, nil
+// PerfilAtivo retorna o perfil ativo ou erro, se não houver
+func (c *Configuração) PerfilAtivo() (*ConfiguracaoPerfil, error) {
+	if c.PerfilAtual < 0 || c.PerfilAtual >= len(c.Perfis) {
+		return nil, errors.New("nenhum perfil ativo")
 	}
 
-	// Ler o conteúdo do arquivo
-	dados, err := ioutil.ReadFile(caminhoArquivo)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler arquivo de configuração: %w", err)
-	}
-
-	// Desserializar o JSON
-	var config Configuração
-	err = json.Unmarshal(dados, &config)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao analisar configuração: %w", err)
-	}
-
-	return &config, nil
-}
-
-// Salvar salva a configuração no arquivo
-func (c *Configuração) Salvar(caminhoArquivo string) error {
-	// Criar o diretório se não existir
-	diretorio := filepath.Dir(caminhoArquivo)
-	err := os.MkdirAll(diretorio, 0755)
-	if err != nil {
-		return fmt.Errorf("erro ao criar diretório de configuração: %w", err)
-	}
-
-	// Serializar a configuração para JSON
-	dados, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return fmt.Errorf("erro ao serializar configuração: %w", err)
-	}
-
-	// Escrever no arquivo
-	err = ioutil.WriteFile(caminhoArquivo, dados, 0644)
-	if err != nil {
-		return fmt.Errorf("erro ao escrever arquivo de configuração: %w", err)
-	}
-
-	return nil
+	return &c.Perfis[c.PerfilAtual], nil
 }
 
 // ObterCaminhoConfiguracao retorna o caminho para o arquivo de configuração
 func ObterCaminhoConfiguracao() string {
-	// Obter o diretório home do usuário
+	// Obter diretório home do usuário
 	diretorioHome, err := os.UserHomeDir()
 	if err != nil {
-		// Fallback para o diretório atual se não conseguir obter o home
+		// Usar diretório atual se não conseguir obter o home
 		diretorioHome, _ = os.Getwd()
 	}
 
-	// Criar o caminho para o arquivo de configuração
+	// Caminho para o arquivo de configuração
 	return filepath.Join(diretorioHome, ".zabbix-manager", "config.json")
 }
