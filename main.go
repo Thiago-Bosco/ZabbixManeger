@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"zabbix-manager/config"
-	"zabbix-manager/handlers"
-	"zabbix-manager/router"
 	"zabbix-manager/zabbix"
 )
 
@@ -141,12 +139,18 @@ func inicializarClienteAPI() {
 }
 
 // Handler Functions
-func initializeHandlers() *handlers.Handler {
-	return &handlers.Handler{
-		Config:     cfg,
-		ClienteAPI: clienteAPI,
-		RenderTemplate: renderizarTemplate,
+func manipuladorHome(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
 	}
+
+	if clienteAPI == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	http.Redirect(w, r, "/hosts", http.StatusFound)
 }
 
 func manipuladorLogin(w http.ResponseWriter, r *http.Request) {
@@ -489,15 +493,22 @@ func main() {
 	// Initialize API if active profile exists
 	inicializarClienteAPI()
 
-	// Initialize handlers
-	h := &handlers.Handler{
-		Config:         cfg,
-		ClienteAPI:     clienteAPI,
-		RenderTemplate: renderizarTemplate,
-	}
-
 	// Configure routes
-	router.ConfigureRoutes(h)
+	http.HandleFunc("/", manipuladorHome)
+	http.HandleFunc("/login", manipuladorLogin)
+	http.HandleFunc("/config", manipuladorConfig)
+	http.HandleFunc("/perfil/adicionar", manipuladorAdicionarPerfil)
+	http.HandleFunc("/perfil/editar", manipuladorEditarPerfil)
+	http.HandleFunc("/perfil/remover", manipuladorRemoverPerfil)
+	http.HandleFunc("/perfil/selecionar", manipuladorSelecionarPerfil)
+	http.HandleFunc("/hosts", manipuladorHosts)
+	http.HandleFunc("/hosts/buscar", manipuladorBuscarHosts)
+	http.HandleFunc("/exportar", manipuladorExportarCSV)
+	http.HandleFunc("/analise", manipuladorAnalise)
+
+	// Serve static files
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	// Start server
 	porta := "5000"
