@@ -238,7 +238,8 @@ func (c *ClienteAPI) realizarRequisicao(pedido map[string]interface{}, resposta 
 	}
 
 	// Criar requisição HTTP
-	apiURL := strings.TrimRight(c.config.URL, "/") + "/api_jsonrpc.php"
+	apiURL := strings.TrimRight(c.config.URL, "/") + "/zabbix/api_jsonrpc.php"
+	log.Printf("Connecting to Zabbix API at: %s", apiURL)
 	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(pedidoBytes))
 	if err != nil {
 		return fmt.Errorf("erro ao criar requisição: %w", err)

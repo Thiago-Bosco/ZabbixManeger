@@ -195,10 +195,12 @@ func manipuladorAdicionarPerfil(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Clean up URL and ensure it doesn't end with api_jsonrpc.php
+	cleanURL := strings.TrimSuffix(strings.TrimSuffix(url, "/"), "api_jsonrpc.php")
 	configAPI := zabbix.ConfigAPI{
-		URL:         url,
+		URL:         cleanURL,
 		Token:       token,
-		TempoLimite: cfg.TempoLimite,
+		TempoLimite: 30 * time.Second, // Set explicit timeout
 	}
 	clienteTemporario := zabbix.NovoClienteAPI(configAPI)
 	if err := clienteTemporario.TestarConexao(); err != nil {
