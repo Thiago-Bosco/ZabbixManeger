@@ -535,6 +535,7 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		tipoFiltro = "mensal"
 	}
 
+	var analisesMensais []zabbix.AnaliseMensal
 	var analises []zabbix.AnaliseProblema
 	var err error
 
@@ -549,13 +550,25 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 				mes = mesInt
 			}
 		}
-		
+
 		log.Printf("Analisando problemas para %d/%d", mes, ano)
-		analises, err = clienteAPI.AnalisarProblemasMensais(ano, mes)
+		analisesMensais, err = clienteAPI.AnalisarProblemasMensais(ano, mes)
+		if err == nil {
+			// Convert AnaliseMensal to AnaliseProblema
+			for _, am := range analisesMensais {
+				ap := zabbix.AnaliseProblema{
+					HostNome:         am.HostNome,
+					TotalProblemas:   am.TotalProblemas,
+					LimitesExcedidos: am.LimitesExcedidos,
+					PicoTrigger:      am.PicoTrigger,
+				}
+				analises = append(analises, ap)
+			}
+		}
 	} else {
 		dataInicial := r.URL.Query().Get("data_inicial")
 		dataFinal := r.URL.Query().Get("data_final")
-		
+
 		if dataInicial != "" && dataFinal != "" {
 			log.Printf("Analisando problemas entre %s e %s", dataInicial, dataFinal)
 			// Implemente a análise por período específico aqui
