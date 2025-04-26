@@ -46,6 +46,13 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	// Initialize template cache
+	// Funções customizadas para templates
+	funcMap := template.FuncMap{
+		"subtract": func(a, b int) int {
+			return a - b
+		},
+	}
+	
 	templatesCache = make(map[string]*template.Template)
 
 	// Load templates
@@ -66,7 +73,7 @@ func carregarTemplate(nome string) {
 	}
 
 	if _, err := os.Stat(layoutPath); os.IsNotExist(err) {
-		tmpl, err := template.New(nome).ParseFiles(templatePath)
+		tmpl, err := template.New(nome).Funcs(funcMap).ParseFiles(templatePath)
 		if err != nil {
 			log.Printf("Error processing template %s: %v", nome, err)
 			return
@@ -75,7 +82,7 @@ func carregarTemplate(nome string) {
 		return
 	}
 
-	tmpl, err := template.New(nome).ParseFiles(layoutPath, templatePath)
+	tmpl, err := template.New(nome).Funcs(funcMap).ParseFiles(layoutPath, templatePath)
 	if err != nil {
 		log.Printf("Error processing template %s: %v", nome, err)
 		return

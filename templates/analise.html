@@ -82,6 +82,40 @@
         {{ if .Analises }}
         <div class="table-responsive">
             <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Host</th>
+                        <th>Total Problemas</th>
+                        <th>Limites Excedidos</th>
+                        <th>Pico de Trigger</th>
+                        <th>Data do Pico</th>
+                        <th>Quantidade</th>
+                        <th>Gravidade</th>
+                        <th>Duração Média</th>
+                        <th>Tempo Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Analises }}
+                    <tr>
+                        <td>{{ .HostNome }}</td>
+                        <td>{{ .TotalProblemas }}</td>
+                        <td>{{ .LimitesExcedidos }}</td>
+                        <td>{{ .PicoTrigger.Nome }}</td>
+                        <td>{{ .PicoTrigger.DataPico.Format "02/01/2006 15:04" }}</td>
+                        <td>{{ .PicoTrigger.Contagem }}</td>
+                        <td>
+                            <span class="badge {{ if eq .PicoTrigger.Gravidade "5" }}bg-danger{{ else if eq .PicoTrigger.Gravidade "4" }}bg-warning{{ else if eq .PicoTrigger.Gravidade "3" }}bg-info{{ else }}bg-secondary{{ end }}">
+                                {{ .PicoTrigger.Gravidade }}
+                            </span>
+                        </td>
+                        <td>{{ .DuracaoMedia }}</td>
+                        <td>{{ .TempoTotal }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
         {{ else }}
         <div class="alert alert-info">
             <i class="bi bi-info-circle"></i> Nenhum dado encontrado para o período selecionado.
