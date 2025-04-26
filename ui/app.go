@@ -1,3 +1,4 @@
+
 package ui
 
 import (
@@ -5,9 +6,9 @@ import (
 	"zabbix-manager/zabbix"
 )
 
-// Aplicacao representa a interface da aplicação
+// Aplicacao representa a interface da aplicação web
 type Aplicacao interface {
-	// Iniciar inicia a aplicação
+	// Iniciar inicia a aplicação web
 	Iniciar() error
 	
 	// Encerrar encerra a aplicação
@@ -27,7 +28,4 @@ type Aplicacao interface {
 	
 	// ObterConfiguracao retorna a configuração da aplicação
 	ObterConfiguracao() *config.Configuração
-	
-	// ConfigurarAPI configura o cliente da API
-	ConfigurarAPI(url, token string) error
 }
