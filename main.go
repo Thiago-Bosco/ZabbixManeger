@@ -429,13 +429,17 @@ func manipuladorBuscarHosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	termoLower := strings.ToLower(termo)
 	var hostsFiltrados []zabbix.Host
-	for _, host := range hosts {
-		if strings.Contains(strings.ToLower(host.Nome), termoLower) ||
-			strings.Contains(strings.ToLower(host.ID), termoLower) {
-			hostsFiltrados = append(hostsFiltrados, host)
+	if termo != "" {
+		termoLower := strings.ToLower(termo)
+		for _, host := range hosts {
+			nomeLower := strings.ToLower(host.Nome)
+			if strings.Contains(nomeLower, termoLower) {
+				hostsFiltrados = append(hostsFiltrados, host)
+			}
 		}
+	} else {
+		hostsFiltrados = hosts
 	}
 
 	pagina := PaginaPrincipal{
