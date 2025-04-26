@@ -22,26 +22,7 @@ type ClienteAPI struct {
 	client *http.Client
 }
 
-// Host representa um host do Zabbix com seus itens e triggers
-type Host struct {
-	ID       string    `json:"hostid"`
-	Nome     string    `json:"host"`
-	Status   string    `json:"status"`
-	Items    []Item    `json:"items"`
-	Triggers []Trigger `json:"triggers"`
-}
 
-// Item representa um item de monitoramento do Zabbix
-type Item struct {
-	ID   string `json:"itemid"`
-	Nome string `json:"name"`
-}
-
-// Trigger representa uma trigger (alarme) do Zabbix
-type Trigger struct {
-	ID   string `json:"triggerid"`
-	Nome string `json:"description"`
-}
 
 // RespostaAPI encapsula a resposta da API do Zabbix
 type RespostaAPI struct {
