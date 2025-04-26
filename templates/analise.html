@@ -1,4 +1,3 @@
-
 {{ define "content" }}
 <div class="card shadow mb-4">
     <div class="card-header">
@@ -14,7 +13,7 @@
                         <option value="periodo" {{ if eq .TipoFiltro "periodo" }}selected{{ end }}>Período Específico</option>
                     </select>
                 </div>
-                
+
                 <div class="col-md-9" id="filtroMensal" {{ if ne .TipoFiltro "mensal" }}style="display:none"{{ end }}>
                     <div class="row">
                         <div class="col-md-6">
@@ -35,7 +34,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="col-md-9" id="filtroPeriodo" {{ if ne .TipoFiltro "periodo" }}style="display:none"{{ end }}>
                     <div class="row">
                         <div class="col-md-6">
@@ -64,7 +63,7 @@
             document.getElementById('tipoFiltro').addEventListener('change', function() {
                 const filtroMensal = document.getElementById('filtroMensal');
                 const filtroPeriodo = document.getElementById('filtroPeriodo');
-                
+
                 if (this.value === 'mensal') {
                     filtroMensal.style.display = 'block';
                     filtroPeriodo.style.display = 'none';
@@ -121,40 +120,6 @@
             <i class="bi bi-info-circle"></i> Nenhum dado encontrado para o período selecionado.
         </div>
         {{ end }}
-                <thead>
-                    <tr>
-                        <th>Host</th>
-                        <th>Total Problemas</th>
-                        <th>Limites Excedidos</th>
-                        <th>Pico de Trigger</th>
-                        <th>Data do Pico</th>
-                        <th>Quantidade</th>
-                        <th>Gravidade</th>
-                        <th>Duração Média</th>
-                        <th>Tempo Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{ range .Analises }}
-                    <tr>
-                        <td>{{ .HostNome }}</td>
-                        <td>{{ .TotalProblemas }}</td>
-                        <td>{{ .LimitesExcedidos }}</td>
-                        <td>{{ .PicoTrigger.Nome }}</td>
-                        <td>{{ .PicoTrigger.DataPico.Format "02/01/2006 15:04" }}</td>
-                        <td>{{ .PicoTrigger.Contagem }}</td>
-                        <td>
-                            <span class="badge {{ if eq .PicoTrigger.Gravidade "5" }}bg-danger{{ else if eq .PicoTrigger.Gravidade "4" }}bg-warning{{ else if eq .PicoTrigger.Gravidade "3" }}bg-info{{ else }}bg-secondary{{ end }}">
-                                {{ .PicoTrigger.Gravidade }}
-                            </span>
-                        </td>
-                        <td>{{ .DuracaoMedia }}</td>
-                        <td>{{ .TempoTotal }}</td>
-                    </tr>
-                    {{ end }}
-                </tbody>
-            </table>
-        </div>
     </div>
 </div>
 {{ end }}
