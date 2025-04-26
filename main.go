@@ -48,7 +48,7 @@ func init() {
 	templatesCache = make(map[string]*template.Template)
 
 	// Load templates
-	templates := []string{"login", "principal", "config"}
+	templates := []string{"login", "principal", "config", "analise"}
 	for _, nome := range templates {
 		carregarTemplate(nome)
 	}
@@ -514,6 +514,41 @@ func manipuladorAnalise(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	
-	renderizarTemplate(w, "analise", nil)
+
+	ano := time.Now().Year()
+	mes := int(time.Now().Month())
+
+	// Pegar parâmetros da query
+	if anoStr := r.URL.Query().Get("ano"); anoStr != "" {
+		if anoInt, err := strconv.Atoi(anoStr); err == nil {
+			ano = anoInt
+		}
+	}
+	if mesStr := r.URL.Query().Get("mes"); mesStr != "" {
+		if mesInt, err := strconv.Atoi(mesStr); err == nil {
+			mes = mesInt
+		}
+	}
+
+	analises, err := clienteAPI.AnalisarProblemasMensais(ano, mes)
+	if err != nil {
+		log.Printf("Erro ao analisar problemas: %v", err)
+		renderizarTemplate(w, "analise", map[string]interface{}{
+			"Erro": fmt.Sprintf("Erro ao analisar problemas: %v", err),
+		})
+		return
+	}
+
+	// Preparar dados para o template
+	dados := map[string]interface{}{
+		"Analises":       analises,
+		"AnoSelecionado": ano,
+		"MesSelecionado": mes,
+		"Anos":          []int{ano - 1, ano, ano + 1},
+		"Meses":         []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+		"NomesMeses":    []string{"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"},
+		"TipoFiltro":    "mensal",
+	}
+
+	renderizarTemplate(w, "analise", dados)
 }
