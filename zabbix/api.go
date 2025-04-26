@@ -10,7 +10,7 @@ import (
 
 // ConfigAPI armazena configurações para conexão com a API Zabbix
 type ConfigAPI struct {
-	URL         string        // URL da API (Ex: http://zabbix.example.com/api_jsonrpc.php)
+	URL         string        // URL do servidor (Ex: http://zabbix.example.com)
 	Token       string        // Token de autenticação da API
 	TempoLimite time.Duration // Tempo limite para requisições (em segundos)
 }
@@ -141,7 +141,8 @@ func (c *ClienteAPI) realizarRequisicao(pedido map[string]interface{}, resposta 
 	}
 
 	// Criar requisição HTTP
-	req, err := http.NewRequest("POST", c.config.URL, bytes.NewBuffer(pedidoBytes))
+	apiURL := strings.TrimRight(c.config.URL, "/") + "/api_jsonrpc.php"
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(pedidoBytes))
 	if err != nil {
 		return fmt.Errorf("erro ao criar requisição: %w", err)
 	}
