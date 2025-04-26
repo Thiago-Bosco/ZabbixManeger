@@ -1,0 +1,56 @@
+{{ define "content" }}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-shield-lock"></i> Login - Zabbix Manager</h4>
+            </div>
+            <div class="card-body">
+                {{ if .Erro }}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> {{ .Erro }}
+                </div>
+                {{ end }}
+                
+                {{ if .Sucesso }}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill"></i> {{ .Sucesso }}
+                </div>
+                {{ end }}
+                
+                {{ if .ListaPerfis }}
+                <h5 class="card-title mb-3">Servidores Zabbix</h5>
+                <div class="list-group mb-4">
+                    {{ range $indice, $perfil := .ListaPerfis }}
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ $perfil.Nome }}</h6>
+                            <p class="mb-1 text-muted"><small>{{ $perfil.URL }}</small></p>
+                        </div>
+                        <div>
+                            {{ if eq $indice $.PerfilAtivo }}
+                            <span class="badge bg-success">Ativo</span>
+                            {{ else }}
+                            <form action="/perfil/selecionar" method="POST" class="d-inline">
+                                <input type="hidden" name="indice" value="{{ $indice }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Selecionar</button>
+                            </form>
+                            {{ end }}
+                        </div>
+                    </div>
+                    {{ end }}
+                </div>
+                {{ else }}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i> Não há servidores configurados. Adicione um servidor para começar.
+                </div>
+                {{ end }}
+                
+                <a href="/config" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Adicionar Servidor
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

@@ -1,0 +1,114 @@
+/* Estilos personalizados para o Zabbix Manager */
+
+:root {
+    --zabbix-red: #D40000;
+    --zabbix-dark: #222222;
+    --zabbix-light: #F5F5F5;
+    --zabbix-gray: #777777;
+}
+
+/* Estilos do cabeçalho */
+.navbar {
+    background-color: var(--zabbix-red);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* Botões principais */
+.btn-primary {
+    background-color: var(--zabbix-red);
+    border-color: var(--zabbix-red);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: #B30000;
+    border-color: #B30000;
+}
+
+.btn-outline-primary {
+    color: var(--zabbix-red);
+    border-color: var(--zabbix-red);
+}
+
+.btn-outline-primary:hover, .btn-outline-primary:focus {
+    background-color: var(--zabbix-red);
+    border-color: var(--zabbix-red);
+}
+
+/* Tabelas */
+.table th {
+    background-color: var(--zabbix-dark);
+    color: white;
+    font-weight: normal;
+}
+
+.table-hover tbody tr:hover {
+    background-color: var(--zabbix-light);
+}
+
+/* Cards e Sombras */
+.card {
+    border: none;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.card-header {
+    border-bottom: none;
+    padding: 0.8rem 1.25rem;
+}
+
+.shadow {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Status e Badges */
+.badge.bg-success {
+    background-color: #388E3C !important;
+}
+
+.badge.bg-danger {
+    background-color: var(--zabbix-red) !important;
+}
+
+/* Alertas */
+.alert-danger {
+    background-color: #FFEBEE;
+    color: var(--zabbix-red);
+    border-color: #FFCDD2;
+}
+
+.alert-success {
+    background-color: #E8F5E9;
+    color: #388E3C;
+    border-color: #C8E6C9;
+}
+
+/* Formulários */
+.form-control:focus {
+    border-color: var(--zabbix-red);
+    box-shadow: 0 0 0 0.25rem rgba(212, 0, 0, 0.25);
+}
+
+/* Paginação */
+.page-item.active .page-link {
+    background-color: var(--zabbix-red);
+    border-color: var(--zabbix-red);
+}
+
+.page-link {
+    color: var(--zabbix-red);
+}
+
+.page-link:hover {
+    color: #B30000;
+}
+
+/* Rodapé */
+footer {
+    color: var(--zabbix-gray);
+    font-size: 0.9rem;
+}

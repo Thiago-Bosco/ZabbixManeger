@@ -1,106 +1,76 @@
-# Zabbix Manager
+# Zabbix Manager Web
 
-Uma aplicação desktop multiplataforma (Windows e Linux) que utiliza o código Go para conectar à API do Zabbix, visualizar hosts, itens e triggers, e gerar relatórios em CSV.
+Uma aplicação web desenvolvida em Go para gerenciamento e monitoramento de infraestrutura Zabbix, com foco em visualização de hosts, itens e triggers, e geração de relatórios em CSV.
 
-## Funcionalidades
+## Características Principais
 
-- Interface desktop amigável e nativa
-- Gerenciamento de múltiplos servidores Zabbix
-- Visualização de hosts e seus itens de monitoramento
-- Busca e filtragem de hosts
+- Interface web responsiva e amigável
+- Suporte para múltiplos perfis de servidor Zabbix
+- Visualização e busca de hosts monitorados
+- Visualização de itens e triggers de cada host
 - Exportação de relatórios em formato CSV
-- Suporte a autenticação via token da API Zabbix
+- Implementação em Go para desempenho e eficiência
+- Sem necessidade de banco de dados adicional
 
 ## Requisitos
 
-- Windows 7 ou superior / Linux
-- Acesso a um servidor Zabbix (URL e token da API)
+- Go 1.18 ou superior
+- Acesso a um servidor Zabbix com API ativa
+- Token de API gerado no frontend do Zabbix
 
 ## Instalação
 
-1. Faça o download do executável mais recente para seu sistema operacional
-2. Execute o arquivo `zabbix-manager` (Linux) ou `zabbix-manager.exe` (Windows)
-
-## Compilação
-
-### Ambiente de Desenvolvimento
-
-Para compilar a aplicação, você precisa ter o Go instalado (versão 1.18 ou superior).
+### Clonar o repositório
 
 ```bash
-# Clone o repositório
 git clone https://github.com/seu-usuario/zabbix-manager.git
 cd zabbix-manager
+```
 
-# Instale as dependências
-go mod tidy
+### Compilar e executar
 
-# Compile para seu sistema atual
+```bash
+# Compilar
 go build
+
+# Executar
+./zabbix-manager
 ```
 
-### Compilação para Windows (a partir de qualquer sistema)
-
-```bash
-GOOS=windows GOARCH=amd64 go build -o zabbix-manager.exe
-```
-
-### Compilação para Linux (a partir de qualquer sistema)
-
-```bash
-GOOS=linux GOARCH=amd64 go build -o zabbix-manager
-```
-
-### Interface Gráfica vs. Modo Headless
-
-O projeto suporta dois modos de operação através de tags de compilação:
-
-1. **Modo GUI (padrão)** - Interface gráfica nativa com Gio
-   ```bash
-   go build
-   # ou explicitamente
-   go build -tags=""
-   ```
-
-2. **Modo Headless** - Interface de linha de comando
-   ```bash
-   go build -tags=headless
-   # ou para executar diretamente
-   go run -tags=headless .
-   ```
-
-## Estrutura do Projeto
-
-- `/zabbix`: Código de integração com a API do Zabbix
-- `/ui`: Componentes da interface gráfica
-  - `/ui/gio`: Interface gráfica nativa com Gio
-- `/config`: Gerenciamento de configurações
-- `/assets`: Recursos visuais (imagens, ícones)
-
-## Tecnologias Utilizadas
-
-- **Go**: Linguagem principal do projeto
-- **Gio**: Framework de interface gráfica nativa
-- **Go modules**: Gerenciamento de dependências
+O servidor iniciará na porta 5000. Acesse no navegador: http://localhost:5000
 
 ## Configuração
 
-A aplicação armazena suas configurações em:
+Na primeira execução, o sistema solicitará a configuração de um servidor Zabbix:
 
-- Windows: `%USERPROFILE%\.zabbix-manager\config.json`
-- Linux: `$HOME/.zabbix-manager/config.json`
+1. Acesse a interface web em http://localhost:5000
+2. Clique em "Adicionar Servidor"
+3. Preencha:
+   - Nome: Um identificador para o servidor (Ex: "Zabbix Produção")
+   - URL da API: URL completa do endpoint da API (Ex: "https://zabbix.exemplo.com/api_jsonrpc.php")
+   - Token da API: Token de autenticação gerado no frontend do Zabbix
 
-Os relatórios são exportados para:
-- Windows: `%USERPROFILE%\Relatórios Zabbix\`
-- Linux: `$HOME/Relatórios Zabbix/`
+## Como obter um token da API Zabbix
 
-## Benefícios da Abordagem Multiplataforma
+1. Faça login no frontend do Zabbix com um usuário que tenha permissões adequadas
+2. Acesse: Administração > Usuários
+3. Selecione seu usuário > guia API tokens
+4. Clique em "Criar token da API"
+5. Dê um nome ao token e defina uma data de expiração (opcional)
+6. Copie o token gerado e use-o na configuração do Zabbix Manager
 
-- **Código Único**: A mesma base de código funciona em Windows e Linux
-- **Interface Nativa**: Interface gráfica nativa em ambos os sistemas
-- **Modo Headless**: Opção de usar em servidores sem interface gráfica
-- **Desempenho**: Aplicação compilada com excelente desempenho
+## Estrutura do Projeto
+
+- `main.go`: Ponto de entrada da aplicação web
+- `zabbix/`: Pacote com implementação da API do Zabbix
+  - `api.go`: Cliente para API do Zabbix
+  - `relatorios.go`: Geração de relatórios CSV
+  - `tipos.go`: Definições de tipos utilizados
+- `config/`: Configurações da aplicação
+  - `config.go`: Gerenciamento de configurações
+- `templates/`: Templates HTML
+- `static/`: Arquivos estáticos (CSS, JS)
 
 ## Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para mais detalhes.

@@ -1,0 +1,141 @@
+{{ define "content" }}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    {{ if .ModoEdicao }}
+                    <i class="bi bi-pencil-square"></i> Editar Servidor
+                    {{ else }}
+                    <i class="bi bi-plus-circle"></i> Adicionar Servidor
+                    {{ end }}
+                </h4>
+            </div>
+            <div class="card-body">
+                {{ if .Erro }}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> {{ .Erro }}
+                </div>
+                {{ end }}
+                
+                {{ if .Sucesso }}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill"></i> {{ .Sucesso }}
+                </div>
+                {{ end }}
+                
+                <form action="{{ if .ModoEdicao }}/perfil/editar{{ else }}/perfil/adicionar{{ end }}" method="POST">
+                    {{ if .ModoEdicao }}
+                    <input type="hidden" name="indice" value="{{ .PerfilAtivo }}">
+                    {{ end }}
+                    
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome do Servidor</label>
+                        <input type="text" class="form-control" id="nome" name="nome" 
+                               value="{{ if .ModoEdicao }}{{ .PerfilEditar.Nome }}{{ end }}" 
+                               placeholder="Ex: Zabbix Produção" required>
+                        <div class="form-text">Nome para identificar este servidor.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="url" class="form-label">URL da API</label>
+                        <input type="url" class="form-control" id="url" name="url" 
+                               value="{{ if .ModoEdicao }}{{ .PerfilEditar.URL }}{{ end }}" 
+                               placeholder="Ex: https://zabbix.exemplo.com/api_jsonrpc.php" required>
+                        <div class="form-text">URL completa para o endpoint JSON-RPC da API do Zabbix.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="token" class="form-label">Token de API</label>
+                        <input type="text" class="form-control" id="token" name="token" 
+                               value="{{ if .ModoEdicao }}{{ .PerfilEditar.Token }}{{ end }}" 
+                               placeholder="Token de autenticação da API" required>
+                        <div class="form-text">
+                            Token de autenticação gerado no frontend do Zabbix. 
+                            <a href="https://www.zabbix.com/documentation/current/en/manual/api" target="_blank">Como obter?</a>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="/login" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Voltar
+                        </a>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> 
+                            {{ if .ModoEdicao }}Atualizar{{ else }}Adicionar{{ end }} Servidor
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {{ if not .ModoEdicao }}
+        <div class="card shadow mt-4">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0"><i class="bi bi-gear-fill"></i> Servidores Configurados</h4>
+            </div>
+            <div class="card-body">
+                {{ if .ListaPerfis }}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{ range $indice, $perfil := .ListaPerfis }}
+                            <tr>
+                                <td>{{ $perfil.Nome }}</td>
+                                <td><small>{{ $perfil.URL }}</small></td>
+                                <td>
+                                    {{ if eq $indice $.PerfilAtivo }}
+                                    <span class="badge bg-success">Ativo</span>
+                                    {{ else }}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                    {{ end }}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="/perfil/editar?indice={{ $indice }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        
+                                        <form action="/perfil/remover" method="POST" class="d-inline"
+                                              onsubmit="return confirm('Tem certeza que deseja remover este servidor?');">
+                                            <input type="hidden" name="indice" value="{{ $indice }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                        
+                                        {{ if ne $indice $.PerfilAtivo }}
+                                        <form action="/perfil/selecionar" method="POST" class="d-inline">
+                                            <input type="hidden" name="indice" value="{{ $indice }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-check-circle"></i>
+                                            </button>
+                                        </form>
+                                        {{ end }}
+                                    </div>
+                                </td>
+                            </tr>
+                            {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+                {{ else }}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i> Não há servidores configurados.
+                </div>
+                {{ end }}
+            </div>
+        </div>
+        {{ end }}
+    </div>
+</div>
+{{ end }}
