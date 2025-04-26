@@ -58,10 +58,16 @@ type Problema struct {
 
 // AnaliseMensal representa estatísticas mensais de problemas
 type AnaliseMensal struct {
-	HostID            string
-	HostNome          string
-	TotalProblemas    int
+	HostID              string
+	HostNome            string
+	TotalProblemas      int
 	ProblemasPorTrigger map[string]int
-	TempoIndisponivel time.Duration
-	LimitesExcedidos  int
+	TempoIndisponivel   time.Duration
+	LimitesExcedidos    int
+	PicoTrigger         struct {
+		Nome      string
+		DataPico  time.Time
+		Contagem  int
+		Gravidade string
+	}
 }

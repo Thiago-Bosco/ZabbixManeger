@@ -117,17 +117,39 @@ func (c *ClienteAPI) AnalisarProblemasMensais(ano int, mes int) ([]AnaliseMensal
 	}
 
 	analises := make(map[string]*AnaliseMensal)
+	problemasporDia := make(map[string]map[string]map[time.Time]int)
+
 	for _, p := range problemas {
+		// Inicializar estruturas
 		if _, existe := analises[p.HostID]; !existe {
 			analises[p.HostID] = &AnaliseMensal{
 				HostID: p.HostID,
+				HostNome: p.Hosts[0].Nome,
 				ProblemasPorTrigger: make(map[string]int),
 			}
+			problemasporDia[p.HostID] = make(map[string]map[time.Time]int)
 		}
+		
+		// Análise por dia
+		if _, existe := problemasporDia[p.HostID][p.TriggerID]; !existe {
+			problemasporDia[p.HostID][p.TriggerID] = make(map[time.Time]int)
+		}
+		
+		dia := time.Date(p.DataInicio.Year(), p.DataInicio.Month(), p.DataInicio.Day(), 0, 0, 0, 0, time.UTC)
+		problemasporDia[p.HostID][p.TriggerID][dia]++
 		
 		analise := analises[p.HostID]
 		analise.TotalProblemas++
 		analise.ProblemasPorTrigger[p.TriggerID]++
+		
+		// Verificar se é um novo pico
+		contagem := problemasporDia[p.HostID][p.TriggerID][dia]
+		if contagem > analise.PicoTrigger.Contagem {
+			analise.PicoTrigger.Nome = p.Nome
+			analise.PicoTrigger.DataPico = dia
+			analise.PicoTrigger.Contagem = contagem
+			analise.PicoTrigger.Gravidade = p.Severidade
+		}
 		
 		if p.Valor == "1" { // Problema ativo
 			analise.LimitesExcedidos++

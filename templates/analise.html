@@ -34,7 +34,10 @@
                         <th>Host</th>
                         <th>Total Problemas</th>
                         <th>Limites Excedidos</th>
-                        <th>Trigger Mais Frequente</th>
+                        <th>Pico de Trigger</th>
+                        <th>Data do Pico</th>
+                        <th>Quantidade</th>
+                        <th>Gravidade</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,7 +46,14 @@
                         <td>{{ .HostNome }}</td>
                         <td>{{ .TotalProblemas }}</td>
                         <td>{{ .LimitesExcedidos }}</td>
-                        <td>{{ .TriggerMaisFrequente }}</td>
+                        <td>{{ .PicoTrigger.Nome }}</td>
+                        <td>{{ .PicoTrigger.DataPico.Format "02/01/2006" }}</td>
+                        <td>{{ .PicoTrigger.Contagem }}</td>
+                        <td>
+                            <span class="badge {{ if eq .PicoTrigger.Gravidade "5" }}bg-danger{{ else if eq .PicoTrigger.Gravidade "4" }}bg-warning{{ else }}bg-info{{ end }}">
+                                {{ .PicoTrigger.Gravidade }}
+                            </span>
+                        </td>
                     </tr>
                     {{ end }}
                 </tbody>
